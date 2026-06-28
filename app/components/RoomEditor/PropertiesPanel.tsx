@@ -228,7 +228,7 @@ export default function PropertiesPanel({
                 }
                 onClick={() => onChangeTableData({ open: false })}
               >
-                Prefer not
+                No
               </button>
             </div>
           </Field>

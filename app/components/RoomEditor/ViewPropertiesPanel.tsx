@@ -13,6 +13,10 @@ export default function PropertiesPanel({
   tableData,
   isMobile = false,
 }: Props) {
+
+  // const apps = getAppointments()
+
+  // apps.
   if (!fixture) {
     return (
       <aside
