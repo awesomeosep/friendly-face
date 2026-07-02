@@ -1,89 +1,41 @@
 import z from "zod";
 
-export const QuizQuestionsSchema = z.object({
-  id: z.number().int(),
-  quizId: z.number().int(),
-  questionText: z.string(),
-  featureId: z.number().int(),
-});
-
-export const QuizEventualitiesSchema = z.object({
-  id: z.number().int(),
-  quizId: z.number().int(),
-  name: z.string(),
-  resultDescription: z.string(),
-});
-
-export const QuizFeatureEventualitySchema = z.object({
+export const OrgSchema = z.object({
   id: z.number().int(),
   name: z.string(),
-  featureId: z.number().int(),
-  eventualityId: z.number().int(),
-  affirmativePoints: z.number().int(),
-  negativePoints: z.number().int(),
-  impactType: z.string().nullable(),
+  code: z.string(),
+  created_at: z.date(),
+  admin_id: z.uuid(),
 });
 
-export const QuizFeaturesSchema = z.object({
+export const PeriodSchema = z.object({
   id: z.number().int(),
-  quizId: z.number().int(),
+  organization_id: z.number().int(),
+  start_time: z.iso.time(),
+  end_time: z.iso.time(),
+  label: z.string(),
+  created_at: z.date(),
+});
+
+export const RoomLayoutSchema = z.object({
+  id: z.number().int(),
+  organization_id: z.number().int(),
+  time_period_id: z.number().int(),
+  room_id: z.number().int(),
+  label: z.string(),
+  layout_data: z.json(),
+  created_at: z.date(),
+});
+
+export const RoomSchema = z.object({
+  id: z.number().int(),
+  organization_id: z.number().int(),
+  label: z.string(),
+});
+
+export const AdminUserSchema = z.object({
+  id: z.uuid(),
+  email: z.email(),
   name: z.string(),
-  category: z.string(),
-  quizFeatureEventualities: z.array(QuizFeatureEventualitySchema),
+  created_at: z.date(),
 });
-
-export const QuizSchema = z.object({
-  id: z.number().int().min(1),
-  title: z.string(),
-  description: z.string(),
-  quizQuestions: z.array(QuizQuestionsSchema),
-  quizFeatures: z.array(QuizFeaturesSchema),
-  quizEventualities: z.array(QuizEventualitiesSchema),
-  user: z.string(),
-  edited: z.date(),
-  created: z.date(),
-});
-
-export type QuizType = z.infer<typeof QuizSchema>;
-
-const QuestionsSchema = QuizQuestionsSchema.omit({
-  quizId: true,
-}).and(z.object({ topic: z.string() }));
-
-const OutcomesSchema = QuizEventualitiesSchema.omit({
-  quizId: true,
-});
-
-export const QuizImpactsSchema = z.object({
-  outcomes: z.array(
-    z.object({ affirmative: z.string(), negative: z.string() })
-  ),
-});
-
-export const QuizSubmissionSchema = z.object({
-  id: z.number().int(),
-  quizId: z.number().int(),
-  answers: z.array(z.string()),
-  user: z.string(),
-  submitted: z.date(),
-  quiz: QuizSchema,
-});
-
-export type QuizSubmissionType = z.infer<typeof QuizSubmissionSchema>;
-
-export const FormSchema = QuizSchema.omit({
-  id: true,
-  quizFeatures: true,
-  quizEventualities: true,
-  quizQuestions: true,
-  edited: true,
-  created: true,
-})
-  // .and(z.object({ features: z.array(FeaturesSchema) }))
-  .and(z.object({ questions: z.array(QuestionsSchema) }))
-  .and(z.object({ eventualities: z.array(OutcomesSchema) }))
-  .and(
-    z.object({
-      questionImpacts: z.array(QuizImpactsSchema),
-    })
-  );

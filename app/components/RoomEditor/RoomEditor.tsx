@@ -13,6 +13,7 @@ import Toolbar from "./Toolbar";
 import FixtureShape from "./FixtureShape";
 import PropertiesPanel from "./PropertiesPanel";
 import ViewPropertiesPanel from "./ViewPropertiesPanel";
+import { client } from "@/lib/orpc";
 
 const GRID_SIZE = 20;
 const MIN_SCALE = 0.45;
@@ -335,6 +336,10 @@ export default function RoomEditor() {
             >
               -
             </button>
+            <button onClick={async () => {
+              const results = await client.org.findMany();
+              console.log(results);
+            }}>hello</button>
             <button
               type="button"
               onClick={fitViewport}

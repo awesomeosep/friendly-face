@@ -1,8 +1,9 @@
+import { relations } from "drizzle-orm";
 import { pgTable } from "drizzle-orm/pg-core";
-import { text, timestamp, time } from "drizzle-orm/pg-core";
+import { text, timestamp, time, uuid } from "drizzle-orm/pg-core";
 
-export const admin = pgTable("admins", {
-  id: text("id").primaryKey(),
+export const adminTable = pgTable("admins", {
+  id: uuid("id").primaryKey(),
   email: text("email").notNull(),
   name: text("name").notNull(),
   createdAt: timestamp("created_at")
@@ -10,20 +11,24 @@ export const admin = pgTable("admins", {
     .notNull(),
 });
 
-export const organization = pgTable("organizations", {
-  id: text("id").primaryKey(),
+export const organizationTable = pgTable("organizations", {
+  id: text().primaryKey(),
   name: text("name").notNull(),
   code: text("code").notNull(),
   createdAt: timestamp("created_at")
     .$defaultFn(() => new Date())
     .notNull(),
+  admin_id: uuid("admin_id")
+    .$defaultFn(() => crypto.randomUUID())
+    .notNull()
+    .references(() => adminTable.id, { onDelete: "cascade" }),
 });
 
-export const period = pgTable("periods", {
+export const periodTable = pgTable("periods", {
   id: text("id").primaryKey(),
   organization_id: text("organization_id")
     .notNull()
-    .references(() => organization.id, { onDelete: "cascade" }),
+    .references(() => organizationTable.id, { onDelete: "cascade" }),
   start_time: time("start_time").notNull(),
   end_time: time("end_time").notNull(),
   label: text("label"),
@@ -32,17 +37,17 @@ export const period = pgTable("periods", {
     .notNull(),
 });
 
-export const room_layout = pgTable("room_layouts", {
+export const roomLayoutTable = pgTable("room_layouts", {
   id: text("id").primaryKey(),
   organization_id: text("organization_id")
     .notNull()
-    .references(() => organization.id, { onDelete: "cascade" }),
+    .references(() => organizationTable.id, { onDelete: "cascade" }),
   time_period_id: text("time_period_id")
     .notNull()
-    .references(() => period.id, { onDelete: "cascade" }),
+    .references(() => periodTable.id, { onDelete: "cascade" }),
   room_id: text("room_id")
     .notNull()
-    .references(() => room.id, { onDelete: "cascade" }),
+    .references(() => roomTable.id, { onDelete: "cascade" }),
   label: text("label").notNull(),
   layout_data: text("layout_data").notNull(),
   created_at: timestamp("created_at")
@@ -50,10 +55,55 @@ export const room_layout = pgTable("room_layouts", {
     .notNull(),
 });
 
-export const room = pgTable("rooms", {
+export const roomTable = pgTable("rooms", {
   id: text("id").primaryKey(),
   organization_id: text("organization_id")
     .notNull()
-    .references(() => organization.id, { onDelete: "cascade" }),
+    .references(() => organizationTable.id, { onDelete: "cascade" }),
   label: text("label").notNull(),
 });
+
+export const adminRelations = relations(
+  adminTable,
+  ({ many }) => ({
+    organizations: many(organizationTable),
+  }),
+);
+
+export const organizationRelations = relations(
+  organizationTable,
+  ({ many }) => ({
+    periods: many(periodTable),
+    rooms: many(roomTable),
+    room_layouts: many(roomLayoutTable),
+  }),
+);
+
+export const periodRelations = relations(periodTable, ({ one }) => ({
+  org: one(organizationTable, {
+    fields: [periodTable.organization_id],
+    references: [organizationTable.id],
+  }),
+}));
+
+export const roomRelations = relations(roomTable, ({ one }) => ({
+  org: one(organizationTable, {
+    fields: [roomTable.organization_id],
+    references: [organizationTable.id],
+  }),
+}));
+
+export const roomLayoutRelations = relations(roomLayoutTable, ({ one }) => ({
+  org: one(organizationTable, {
+    fields: [roomLayoutTable.organization_id],
+    references: [organizationTable.id],
+  }),
+  period: one(periodTable, {
+    fields: [roomLayoutTable.time_period_id],
+    references: [periodTable.id],
+  }),
+  room: one(roomTable, {
+    fields: [roomLayoutTable.room_id],
+    references: [roomTable.id],
+  }),
+}));
