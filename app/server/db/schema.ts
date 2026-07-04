@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { pgTable } from "drizzle-orm/pg-core";
+import { integer, pgTable } from "drizzle-orm/pg-core";
 import { text, timestamp, time, uuid } from "drizzle-orm/pg-core";
 
 export const adminTable = pgTable("admins", {
@@ -12,7 +12,7 @@ export const adminTable = pgTable("admins", {
 });
 
 export const organizationTable = pgTable("organizations", {
-  id: text().primaryKey(),
+  id: integer("id").primaryKey(),
   name: text("name").notNull(),
   code: text("code").notNull(),
   createdAt: timestamp("created_at")
@@ -25,8 +25,8 @@ export const organizationTable = pgTable("organizations", {
 });
 
 export const periodTable = pgTable("periods", {
-  id: text("id").primaryKey(),
-  organization_id: text("organization_id")
+  id: integer("id").primaryKey(),
+  organization_id: integer("organization_id")
     .notNull()
     .references(() => organizationTable.id, { onDelete: "cascade" }),
   start_time: time("start_time").notNull(),
@@ -38,14 +38,14 @@ export const periodTable = pgTable("periods", {
 });
 
 export const roomLayoutTable = pgTable("room_layouts", {
-  id: text("id").primaryKey(),
-  organization_id: text("organization_id")
+  id: integer("id").primaryKey(),
+  organization_id: integer("organization_id")
     .notNull()
     .references(() => organizationTable.id, { onDelete: "cascade" }),
-  time_period_id: text("time_period_id")
+  time_period_id: integer("time_period_id")
     .notNull()
     .references(() => periodTable.id, { onDelete: "cascade" }),
-  room_id: text("room_id")
+  room_id: integer("room_id")
     .notNull()
     .references(() => roomTable.id, { onDelete: "cascade" }),
   label: text("label").notNull(),
@@ -56,8 +56,8 @@ export const roomLayoutTable = pgTable("room_layouts", {
 });
 
 export const roomTable = pgTable("rooms", {
-  id: text("id").primaryKey(),
-  organization_id: text("organization_id")
+  id: integer("id").primaryKey(),
+  organization_id: integer("organization_id")
     .notNull()
     .references(() => organizationTable.id, { onDelete: "cascade" }),
   label: text("label").notNull(),

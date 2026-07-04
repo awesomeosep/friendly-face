@@ -33,6 +33,19 @@ export const orgRouter = {
       });
       return org || null;
     }),
+  findById: os
+    .input(OrgSchema.pick({ id: true }))
+    .handler(async ({ input }) => {
+      const org = await db.query.organizationTable.findFirst({
+        where: eq(organizationTable.id, input.id),
+        with: {
+          rooms: true,
+          periods: true,
+          room_layouts: true,
+        },
+      });
+      return org || null;
+    }),
   findMany: base.handler(async ({ context }) => {
     console.log("received!");
     const session = context.user ? context.user : null;
