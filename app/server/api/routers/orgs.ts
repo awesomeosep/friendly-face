@@ -1,9 +1,10 @@
 import { db } from "@/server/db";
 import { os } from "@orpc/server";
 import { type Context } from "../../context";
-import { OrgSchema } from "@/lib/schema";
-import { organizationTable } from "@/server/db/schema";
-import { eq } from "drizzle-orm";
+import { OrgSchema, RoomLayoutSchema } from "@/lib/schema";
+import { organizationTable, roomLayoutTable } from "@/server/db/schema";
+import { and, eq } from "drizzle-orm";
+import { z } from "zod";
 
 export const base = os.$context<Context>();
 
@@ -17,6 +18,12 @@ export const authed = base.use(async ({ context, next }) => {
       user: context.user, // Forces user context to be strictly non-null
     },
   });
+});
+
+const FindRoomLayoutInputSchema = z.object({
+  org_id: z.string(),
+  room_id: z.string(),
+  period_id: z.string(),
 });
 
 export const orgRouter = {
@@ -60,6 +67,45 @@ export const orgRouter = {
     console.log("orgs: ", orgs);
     return orgs || [];
   }),
+  // TODO: update to base. for auth
+  updateRoom: os
+    .input(RoomLayoutSchema.pick({ id: true, label: true, layout_data: true }))
+    .handler(async ({ input }) => {
+      const updatedInput = {
+        id: input.id,
+        label: input.label,
+        layout_data: input.layout_data?.toString(),
+      };
+      console.log("updatedInput: ", updatedInput);
+      // const roomLayout = await db.query.roomLayoutTable.findMany({
+      //   where: eq(roomLayoutTable.id, input.id),
+      // });
+      const roomLayout = await db
+        .update(roomLayoutTable)
+        .set(updatedInput)
+        .where(eq(roomLayoutTable.id, input.id))
+        .returning();
+      return roomLayout || null;
+    }),
+  findRoomDataByRoomPeriod: os
+    .input(FindRoomLayoutInputSchema.pick({ org_id: true, room_id: true, period_id: true }))
+    .handler(async ({ input }) => {
+      const roomLayout = await db.query.roomLayoutTable.findFirst({
+        where: and(
+          eq(roomLayoutTable.organization_id, Number(input.org_id)),
+          eq(roomLayoutTable.room_id, Number(input.room_id)),
+          eq(roomLayoutTable.time_period_id, Number(input.period_id)),
+        ),
+      });
+      console.log("roomLayout: ", roomLayout);
+      return roomLayout || null;
+    }),
+  // submitResponse: base
+  //   .input(z.object({ quizId: z.number(), answers: z.array(z.string()) }))
+  //   .handler(async ({ input, context }) => {
+  //     const session = context.user ? context.user : null;
+  //     const submission = await db
+  //       .insert(submissionsTable)
   // submitResponse: base
   //   .input(z.object({ quizId: z.number(), answers: z.array(z.string()) }))
   //   .handler(async ({ input, context }) => {

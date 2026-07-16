@@ -24,10 +24,12 @@ interface EditorState {
   setRoomName: (name: string) => void;
   importRoom: (data: RoomData) => void;
   exportRoom: () => RoomData;
+  setRoomUpdatedAt: (timestamp: string) => void;
 }
 
 const DEFAULT_ROOM: RoomData = {
-  id: uuidv4(),
+  id: 1,
+  // Math.floor(Math.random() * 1000000) + 1
   name: "New Room",
   occupancy: 100,
   canvasWidth: 1000,
@@ -136,4 +138,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   importRoom: (data) => set({ room: data, selectedId: null }),
 
   exportRoom: () => get().room,
+
+  setRoomUpdatedAt: (timestamp: string) =>
+    set((s) => ({
+      room: { ...s.room, updatedAt: timestamp },
+    })),
 }));

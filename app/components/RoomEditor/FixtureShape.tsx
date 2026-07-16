@@ -91,7 +91,7 @@ export default function FixtureShape({
             width={fixture.width}
             text={fixture.label}
             fontSize={12}
-            fill="#fff"
+            fill="#000000"
             align="center"
           />
         </>
@@ -107,7 +107,7 @@ export default function FixtureShape({
           text={fixture.label}
           fontSize={14}
           fontStyle="bold"
-          fill="#fff"
+          fill="#000000"
           align="center"
         />
       );
@@ -132,7 +132,7 @@ export default function FixtureShape({
             width={fixture.width}
             text={fixture.label}
             fontSize={12}
-            fill="#fff"
+            fill="#000000"
             align="center"
           />
         )}

@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { NavBar } from "@/components/NavBar";
+import NavBar from "@/components/NavBar";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const queryClient = new QueryClient();
@@ -11,9 +11,13 @@ export default function Layout({
   children: React.ReactNode;
 }>) {
   return (
-    <div className="h-screen h-full w-screen flex flex-col overflow-y-auto">
+    <div className="h-screen h-full w-screen flex flex-col z-0 relative overflow-hidden">
       <NavBar></NavBar>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <div className="flex flex-col w-screen min-h-screen overflow-y-auto overflow-x-hidden">
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
+      </div>
     </div>
   );
 }

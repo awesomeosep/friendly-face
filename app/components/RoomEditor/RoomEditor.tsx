@@ -4,27 +4,41 @@ import { useRef, useCallback, useEffect, useState } from "react";
 import { Stage, Layer, Line } from "react-konva";
 import Konva from "konva";
 import { useEditorStore } from "./useEditorStore";
-import { FixtureType, FIXTURE_DEFAULTS } from "./types";
+import { FixtureType, FIXTURE_DEFAULTS, RoomData } from "./types";
 // import FixtureShape from "./FixtureShape";
 // import Toolbar from "./Toolbar";
 // import PropertiesPanel from "./PropertiesPanel";
-import HeaderBar from "./HeaderBar";
+// import HeaderBar from "./HeaderBar";
 import Toolbar from "./Toolbar";
 import FixtureShape from "./FixtureShape";
 import PropertiesPanel from "./PropertiesPanel";
 import ViewPropertiesPanel from "./ViewPropertiesPanel";
-import { client } from "@/lib/orpc";
+import { client, orpc } from "@/lib/orpc";
+import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
+import { ORPCError } from "@orpc/client";
+import { useParams } from "next/navigation";
 
 const GRID_SIZE = 20;
 const MIN_SCALE = 0.45;
 const MAX_SCALE = 2.5;
 
-export default function RoomEditor() {
+type ParamsType = {
+  org_id: string;
+  room_id: string;
+  period_id: string;
+};
+
+export default function RoomEditor(props: { mode: "edit" | "view" }) {
+  const orgId = parseInt(useParams<ParamsType>().org_id);
+  const roomId = parseInt(useParams<ParamsType>().room_id);
+  const periodId = parseInt(useParams<ParamsType>().period_id);
+
   const stageRef = useRef<Konva.Stage>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [stageSize, setStageSize] = useState({ width: 800, height: 600 });
   const [viewport, setViewport] = useState({ scale: 1, x: 0, y: 0 });
-  const [mode, setMode] = useState<"map" | "table" | "view">("map");
+  // const [mode, setMode] = useState<"map" | "table" | "view">("map");
   const [propertiesPanel, setPropertiesPanel] = useState<"map" | "data">("map");
   const [pendingFixture, setPendingFixture] = useState<FixtureType | null>(
     null,
@@ -32,6 +46,7 @@ export default function RoomEditor() {
   const pinchStateRef = useRef<{ distance: number; scale: number } | null>(
     null,
   );
+  const [loadingSave, setLoadingSave] = useState(false);
 
   const {
     room,
@@ -45,7 +60,49 @@ export default function RoomEditor() {
     setRoomName,
     importRoom,
     exportRoom,
+    setRoomUpdatedAt,
   } = useEditorStore();
+
+  const {
+    isPending: roomDataLoading,
+    data: roomData,
+    isSuccess: roomDataSuccess,
+  } = useQuery(
+    orpc.org.findRoomDataByRoomPeriod.queryOptions({
+      staleTime: Infinity,
+      cacheTime: Infinity,
+      input: {
+        org_id: orgId.toString(),
+        room_id: roomId.toString(),
+        period_id: periodId.toString(),
+      },
+      onError: (error: ORPCError<string, unknown>) => {
+        console.error("Error fetching organization:", error);
+      },
+    }),
+  );
+
+  const hasExecuted = useRef(false);
+
+  useEffect(() => {
+    if (roomDataSuccess && !hasExecuted.current) {
+      console.log("Query succeeded! Data:", roomData?.layout_data);
+      if (roomData) {
+        const newRoomData: RoomData = {
+          id: roomId,
+          name: roomData.label,
+          occupancy: roomData.layout_data?.occupancy ?? 100,
+          canvasWidth: roomData.layout_data?.canvasWidth ?? 1000,
+          canvasHeight: roomData.layout_data?.canvasHeight ?? 700,
+          fixtures: roomData.layout_data?.fixtures ?? [],
+          tableData: roomData.layout_data?.tableData ?? [],
+          updatedAt: roomData.updated_at ?? new Date().toISOString(),
+        };
+        importRoom(newRoomData);
+      }
+      hasExecuted.current = true;
+    }
+  }, [roomDataSuccess, roomData]);
 
   const selectedFixture =
     room.fixtures.find((f) => f.id === selectedId) ?? null;
@@ -135,7 +192,7 @@ export default function RoomEditor() {
         <Line
           key={`v${x}`}
           points={[x, 0, x, h]}
-          stroke="#1a2235"
+          stroke="#9dadd2"
           strokeWidth={1}
         />,
       );
@@ -145,7 +202,7 @@ export default function RoomEditor() {
         <Line
           key={`h${y}`}
           points={[0, y, w, y]}
-          stroke="#1a2235"
+          stroke="#9dadd2"
           strokeWidth={1}
         />,
       );
@@ -186,7 +243,7 @@ export default function RoomEditor() {
         }
       }
     },
-    [mode, pendingFixture, addFixture, selectFixture],
+    [pendingFixture, addFixture, selectFixture],
   );
 
   const handleWheel = useCallback(
@@ -277,16 +334,41 @@ export default function RoomEditor() {
   };
 
   const handleToolbarAdd = (type: FixtureType) => {
-    if (mode !== "map") return;
+    if (props.mode !== "edit") return;
     setPendingFixture(type);
   };
 
-  const handleToggleMode = (newMode: "map" | "table" | "view") => {
-    const oldMode = mode;
-    setMode(newMode);
-    if (newMode != oldMode) {
-      setPendingFixture(null);
-      selectFixture(null);
+  // const handleToggleMode = (newMode: "map" | "table" | "view") => {
+  //   const oldMode = mode;
+  //   setMode(newMode);
+  //   if (newMode != oldMode) {
+  //     setPendingFixture(null);
+  //     selectFixture(null);
+  //   }
+  // };
+
+  const saveDataToServer = async () => {
+    setLoadingSave(true);
+    try {
+      const roomData = exportRoom();
+      const { id, name, updatedAt, ...submitData } = roomData;
+
+      const response = await client.org.updateRoom({
+        id,
+        label: name,
+        layout_data: JSON.stringify(submitData),
+      });
+      if (!response) {
+        toast("Could not update room.");
+      } else {
+        setRoomUpdatedAt(new Date().toISOString());
+        toast("Saved room data.");
+      }
+    } catch (error) {
+      console.error(error);
+      toast("Error saving room data.");
+    } finally {
+      setLoadingSave(false);
     }
   };
 
@@ -304,18 +386,18 @@ export default function RoomEditor() {
   };
 
   return (
-    <div className="flex min-h-[100dvh] h-[100dvh] flex-col bg-[#0f1117] text-white overflow-hidden">
-      <HeaderBar
+    <div className="flex min-h-[100dvh] h-[100dvh] flex-col overflow-hidden">
+      {/* <HeaderBar
         roomName={room.name}
         onNameChange={setRoomName}
         onExport={handleExport}
         onImport={importRoom}
         mode={mode}
         onToggleMode={handleToggleMode}
-      />
+      /> */}
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row overflow-hidden">
-        {mode === "map" && (
+        {props.mode === "edit" && (
           <Toolbar onAdd={handleToolbarAdd} isMobile={isMobile} />
         )}
 
@@ -327,7 +409,7 @@ export default function RoomEditor() {
             cursor: pendingFixture ? "crosshair" : "default",
           }}
         >
-          <div className="absolute right-3 top-3 z-20 flex items-center gap-2 rounded-full border border-[#1e2535] bg-[#0a0d14]/90 px-2 py-1 backdrop-blur">
+          <div className="absolute right-3 top-3 z-20 flex items-center gap-2 rounded-full border px-2 py-1 backdrop-blur drop-shadow-lg">
             <button
               type="button"
               onClick={handleZoomOut}
@@ -336,14 +418,10 @@ export default function RoomEditor() {
             >
               -
             </button>
-            <button onClick={async () => {
-              const results = await client.org.findMany();
-              console.log(results);
-            }}>hello</button>
             <button
               type="button"
               onClick={fitViewport}
-              className="canvas-control-btn"
+              className="canvas-control-btn text-sm"
               aria-label="Fit to screen"
             >
               Fit
@@ -388,18 +466,19 @@ export default function RoomEditor() {
                   fixture={fixture}
                   isSelected={fixture.id === selectedId}
                   isSelectable={
-                    mode === "view"
-                      ? fixture.type.startsWith("table") && room.tableData.find((t) => t.id === fixture.id)?.open
+                    props.mode === "view"
+                      ? fixture.type.startsWith("table") &&
+                        room.tableData.find((t) => t.id === fixture.id)?.open
                       : true
                   }
-                  isEditable={mode === "map"}
+                  isEditable={props.mode === "edit"}
                   onSelect={() => {
                     setPropertiesPanel("map");
                     selectFixture(fixture.id);
                   }}
                   onChange={(changes) => updateFixture(fixture.id, changes)}
                   tableActiveColor={
-                    mode !== "map" && fixture.type.startsWith("table")
+                    props.mode !== "edit" && fixture.type.startsWith("table")
                       ? room.tableData.find((t) => t.id === fixture.id)?.open
                         ? undefined
                         : "#8a9bb0"
@@ -411,7 +490,7 @@ export default function RoomEditor() {
           </Stage>
         </div>
 
-        {mode === "map" && (
+        {props.mode === "edit" && (
           <PropertiesPanel
             room={room}
             fixture={selectedFixture}
@@ -424,8 +503,8 @@ export default function RoomEditor() {
               selectedId && updateTableData(selectedId, changes)
             }
             onDelete={() => selectedId && deleteFixture(selectedId)}
-            panel={propertiesPanel}
-            onChangePanel={setPropertiesPanel}
+            onSaveData={saveDataToServer}
+            loadingSave={loadingSave}
           />
         )}
 
@@ -440,7 +519,7 @@ export default function RoomEditor() {
           />
         )} */}
 
-        {mode === "view" && (
+        {props.mode === "view" && (
           <ViewPropertiesPanel
             fixture={selectedFixture}
             tableData={selectedTableData}
@@ -450,20 +529,23 @@ export default function RoomEditor() {
       </div>
 
       {/* Status bar */}
-      <div className="h-6 bg-[#080b11] border-t border-[#1e2535] flex items-center px-4 gap-4">
-        <span className="text-[10px] text-[#3a4a60]">
-          {room.fixtures.length} fixture{room.fixtures.length !== 1 ? "s" : ""}
-        </span>
-        {selectedFixture && (
-          <span className="text-[10px] text-[#4a9eff]">
-            {selectedFixture.type} x{Math.round(selectedFixture.x)} y
-            {Math.round(selectedFixture.y)}
+      {props.mode == "edit" && (
+        <div className="h-6  border-t  flex items-center px-4 gap-4">
+          <span className="text-[10px] text-[#3a4a60]">
+            {room.fixtures.length} fixture
+            {room.fixtures.length !== 1 ? "s" : ""}
           </span>
-        )}
-        <span className="ml-auto text-[10px] text-[#2a3545]">
-          Last saved: {new Date(room.updatedAt).toLocaleTimeString()}
-        </span>
-      </div>
+          {selectedFixture && (
+            <span className="text-[10px] text-[#4a9eff]">
+              {selectedFixture.type} x{Math.round(selectedFixture.x)} y
+              {Math.round(selectedFixture.y)}
+            </span>
+          )}
+          <span className="ml-auto text-[10px] text-[#2a3545]">
+            Last saved: {new Date(room.updatedAt).toLocaleTimeString()}
+          </span>
+        </div>
+      )}
 
       {/* Esc cancels placement */}
       {pendingFixture && <EscListener onEsc={() => setPendingFixture(null)} />}

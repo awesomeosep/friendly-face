@@ -1,6 +1,6 @@
 import { relations } from "drizzle-orm";
 import { integer, pgTable } from "drizzle-orm/pg-core";
-import { text, timestamp, time, uuid } from "drizzle-orm/pg-core";
+import { text, timestamp, time, uuid, jsonb } from "drizzle-orm/pg-core";
 
 export const adminTable = pgTable("admins", {
   id: uuid("id").primaryKey(),
@@ -49,7 +49,7 @@ export const roomLayoutTable = pgTable("room_layouts", {
     .notNull()
     .references(() => roomTable.id, { onDelete: "cascade" }),
   label: text("label").notNull(),
-  layout_data: text("layout_data").notNull(),
+  layout_data: jsonb("layout_data").notNull(),
   created_at: timestamp("created_at")
     .$defaultFn(() => new Date())
     .notNull(),

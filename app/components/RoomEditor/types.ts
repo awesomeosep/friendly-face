@@ -28,7 +28,7 @@ export interface TableData {
 }
 
 export interface RoomData {
-  id: string;
+  id: number;
   name: string;
   occupancy: number;
   canvasWidth: number;
@@ -56,7 +56,7 @@ export const FIXTURE_COLORS: Record<FixtureType, string> = {
   door: "#f5a623",
   wall: "#8a9bb0",
   counter: "#b08a4a",
-  label: "#ffffff",
+  label: "#000000",
 };
 
 export const FIXTURE_LABELS: Record<FixtureType, string> = {

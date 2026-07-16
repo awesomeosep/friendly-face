@@ -1,6 +1,6 @@
 "use client";
 
-import { Fixture, TableData } from "./types";
+import { Fixture, FIXTURE_LABELS, TableData } from "./types";
 
 interface Props {
   fixture: Fixture | null;
@@ -13,22 +13,16 @@ export default function PropertiesPanel({
   tableData,
   isMobile = false,
 }: Props) {
-
-  // const apps = getAppointments()
-
-  // apps.
   if (!fixture) {
     return (
       <aside
         className={
           isMobile
-            ? "items-center justify-center w-full max-h-[36vh] border-t border-[#1e2535] bg-[#0a0d14] flex flex-col p-3 gap-4 overflow-y-auto lg:w-[220px] lg:max-h-none lg:border-t-0 lg:border-l"
-            : "items-center justify-center w-[220px] bg-[#0a0d14] border-l border-[#1e2535] flex flex-col p-4 gap-5 overflow-y-auto"
+            ? "items-center justify-center w-full max-h-[36vh] border-t flex flex-col p-3 gap-4 overflow-y-auto lg:w-[220px] lg:max-h-none lg:border-t-0 lg:border-l"
+            : "items-center justify-center w-[220px] border-l flex flex-col p-4 gap-5 overflow-y-auto"
         }
       >
-        <span className="text-[10px] text-[#3a4a60]">
-          Select a table to view
-        </span>
+        <p>Select a table to view</p>
       </aside>
     );
   }
@@ -37,32 +31,29 @@ export default function PropertiesPanel({
     <aside
       className={
         isMobile
-          ? "w-full max-h-[40vh] border-t border-[#1e2535] bg-[#0a0d14] flex flex-col p-3 gap-4 overflow-y-auto lg:w-[220px] lg:max-h-none lg:border-t-0 lg:border-l"
-          : "w-[220px] bg-[#0a0d14] border-l border-[#1e2535] flex flex-col p-4 gap-5 overflow-y-auto"
+          ? "w-full max-h-[40vh] border-t flex flex-col p-3 gap-4 overflow-y-auto lg:w-[220px] lg:max-h-none lg:border-t-0 lg:border-l"
+          : "w-[220px] border-l flex flex-col p-4 gap-4 overflow-y-auto"
       }
     >
       <div>
-        <div className="text-sm text-white font-medium">{fixture.label}</div>
-        <div className="text-[10px] text-[#3a4a60] mt-0.5 font-mono">
-          {fixture.id.slice(0, 8)}...
-        </div>
+        <Field label="">
+          <p className="font-medium">{fixture.label}</p>
+          <p className="text-xs font-light">{FIXTURE_LABELS[fixture.type]}</p>
+        </Field>
       </div>
-
-      <span>This table is welcoming new people!</span>
-
+      <p>This table is welcoming new people!</p>
       <Field label="Seats Open">
-        <span>{(tableData?.seats ?? 0) - (tableData?.seatsFilled ?? 0)}/{tableData?.seats ?? 0}</span>
+        <p>
+          {(tableData?.seats ?? 0) - (tableData?.seatsFilled ?? 0)}/
+          {tableData?.seats ?? 0}
+        </p>
       </Field>
-
       <Field label="Interests">
-        <span>{tableData?.interests ?? "No interests entered"}</span>
+        <p>{tableData?.interests ?? "No interests entered"}</p>
       </Field>
-
       <style jsx>{`
         :global(.input-field) {
           width: 100%;
-          background: #111827;
-          border: 1px solid #1e2535;
           border-radius: 6px;
           padding: 5px 8px;
           font-size: 12px;
