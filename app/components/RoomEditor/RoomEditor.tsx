@@ -86,17 +86,17 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
 
   useEffect(() => {
     if (roomDataSuccess && !hasExecuted.current) {
-      console.log("Query succeeded! Data:", roomData?.layout_data);
+      console.log("Query succeeded! Data:", roomData);
       if (roomData) {
         const newRoomData: RoomData = {
-          id: roomId,
+          id: roomData.id,
           name: roomData.label,
           occupancy: roomData.layout_data?.occupancy ?? 100,
           canvasWidth: roomData.layout_data?.canvasWidth ?? 1000,
           canvasHeight: roomData.layout_data?.canvasHeight ?? 700,
           fixtures: roomData.layout_data?.fixtures ?? [],
           tableData: roomData.layout_data?.tableData ?? [],
-          updatedAt: roomData.updated_at ?? new Date().toISOString(),
+          updatedAt: roomData.updated_at?.toISOString() ?? new Date().toISOString(),
         };
         importRoom(newRoomData);
       }
@@ -352,21 +352,23 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
     try {
       const roomData = exportRoom();
       const { id, name, updatedAt, ...submitData } = roomData;
+      console.log(JSON.stringify(submitData));
+      console.log("id: ", id);
 
-      const response = await client.org.updateRoom({
+      const response = await client.org.updateRoomLayout({
         id,
         label: name,
         layout_data: JSON.stringify(submitData),
       });
       if (!response) {
-        toast("Could not update room.");
+        toast.error("Error saving room data.");
       } else {
         setRoomUpdatedAt(new Date().toISOString());
-        toast("Saved room data.");
+        toast.success("Room data saved.");
       }
     } catch (error) {
       console.error(error);
-      toast("Error saving room data.");
+      toast.error("Error saving room data.");
     } finally {
       setLoadingSave(false);
     }

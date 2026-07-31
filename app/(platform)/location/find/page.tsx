@@ -30,7 +30,7 @@ export default function FindOrgPage() {
         alert("No location found with that code.");
       } else {
         const orgId = results?.id;
-        router.push(`/location/${orgId}`);
+        router.push(`/location/${orgId}/view`);
       }
     } catch (error) {
       console.error("Error searching for location:", error);

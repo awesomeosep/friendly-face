@@ -125,21 +125,18 @@ export default function FixtureShape({
           cornerRadius={fixture.type === "counter" ? 4 : 0}
           dash={fixture.type === "door" ? [8, 4] : undefined}
         />
-        {fixture.type !== "wall" && (
-          <Text
-            x={0}
-            y={fixture.height / 2 - 7}
-            width={fixture.width}
-            text={fixture.label}
-            fontSize={12}
-            fill="#000000"
-            align="center"
-          />
-        )}
+        <Text
+          x={0}
+          y={fixture.height / 2 - 7}
+          width={fixture.width}
+          text={fixture.label}
+          fontSize={12}
+          fill="#000000"
+          align="center"
+        />
       </>
     );
   };
-
 
   return (
     <>

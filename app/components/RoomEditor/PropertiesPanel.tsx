@@ -8,8 +8,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Fixture, FIXTURE_LABELS, RoomData, TableData } from "./types";
 import { Button } from "../ui/button";
 import { ButtonGroup } from "../ui/button-group";
-import { SaveIcon } from "lucide-react";
+import { CheckIcon, CopyIcon, SaveIcon } from "lucide-react";
 import { Spinner } from "../ui/spinner";
+import { Field, FieldLabel } from "../ui/field";
 
 interface Props {
   fixture: Fixture | null;
@@ -38,6 +39,21 @@ export default function PropertiesPanel({
     ? room.tableData.find((t) => t.id === fixture.id) || null
     : null;
   const [panel, setPanel] = useState<"map" | "data">("map");
+  const [copiedToClipboard, setCopiedToClipboard] = useState(false);
+
+  const copyRoomDataToClipboard = () => {
+    const roomDataString = JSON.stringify(room, null, 2);
+    navigator.clipboard.writeText(roomDataString).then(
+      () => {
+        setCopiedToClipboard(true);
+        setTimeout(() => setCopiedToClipboard(false), 2000);
+      },
+      (err) => {
+        console.error("Could not copy text: ", err);
+      },
+    );
+  };
+
   if (!fixture) {
     return (
       <aside
@@ -47,14 +63,16 @@ export default function PropertiesPanel({
             : "w-[220px] border-l flex flex-col p-4 gap-5 overflow-y-auto"
         }
       >
-        <Field label="Room Name">
+        <Field>
+          <FieldLabel>Room Label</FieldLabel>
           <Input
             type="text"
             value={room.name}
             onChange={(e) => onChangeRoom({ name: e.target.value })}
           />
         </Field>
-        <Field label="Room Occupancy">
+        <Field>
+          <FieldLabel>Room Occupancy</FieldLabel>
           <Input
             type="number"
             value={room.occupancy}
@@ -63,7 +81,8 @@ export default function PropertiesPanel({
             }
           />
         </Field>
-        <Field label="Room Width">
+        <Field>
+          <FieldLabel>Room Width</FieldLabel>
           <Input
             type="number"
             value={room.canvasWidth}
@@ -72,7 +91,8 @@ export default function PropertiesPanel({
             }
           />
         </Field>
-        <Field label="Room Height">
+        <Field>
+          <FieldLabel>Room Height</FieldLabel>
           <Input
             type="number"
             value={room.canvasHeight}
@@ -84,6 +104,10 @@ export default function PropertiesPanel({
         <Button disabled={loadingSave} onClick={onSaveData}>
           {loadingSave ? <Spinner /> : <SaveIcon />}
           Save Changes
+        </Button>
+        <Button disabled={loadingSave} onClick={copyRoomDataToClipboard} variant="outline">
+          {copiedToClipboard ? <CheckIcon /> : <CopyIcon />}
+          Copy layout data
         </Button>
       </aside>
     );
@@ -106,7 +130,8 @@ export default function PropertiesPanel({
         </TabsList>
         <TabsContent value="map">
           <div className="mb-4">
-            <Field label="type">
+            <Field>
+              <FieldLabel>Type</FieldLabel>
               <p className="text-sm font-medium">
                 {FIXTURE_LABELS[fixture.type]}
               </p>
@@ -114,7 +139,8 @@ export default function PropertiesPanel({
             </Field>
           </div>
           <div className="flex flex-col gap-3">
-            <Field label="Label">
+            <Field>
+              <FieldLabel>Label</FieldLabel>
               <Input
                 type="text"
                 value={fixture.label}
@@ -123,28 +149,32 @@ export default function PropertiesPanel({
             </Field>
 
             <div className="grid grid-cols-2 gap-2">
-              <Field label="X">
+              <Field>
+                <FieldLabel>X</FieldLabel>
                 <Input
                   type="number"
                   value={Math.round(fixture.x)}
                   onChange={(e) => onChange({ x: Number(e.target.value) })}
                 />
               </Field>
-              <Field label="Y">
+              <Field>
+                <FieldLabel>Y</FieldLabel>
                 <Input
                   type="number"
                   value={Math.round(fixture.y)}
                   onChange={(e) => onChange({ y: Number(e.target.value) })}
                 />
               </Field>
-              <Field label="W">
+              <Field>
+                <FieldLabel>W</FieldLabel>
                 <Input
                   type="number"
                   value={Math.round(fixture.width)}
                   onChange={(e) => onChange({ width: Number(e.target.value) })}
                 />
               </Field>
-              <Field label="H">
+              <Field>
+                <FieldLabel>H</FieldLabel>
                 <Input
                   type="number"
                   value={Math.round(fixture.height)}
@@ -153,7 +183,8 @@ export default function PropertiesPanel({
               </Field>
             </div>
 
-            <Field label="Rotation (deg)">
+            <Field>
+              <FieldLabel>Rotation (deg)</FieldLabel>
               <Input
                 type="number"
                 value={Math.round(fixture.rotation)}
@@ -168,7 +199,8 @@ export default function PropertiesPanel({
         </TabsContent>
         <TabsContent value="data">
           <div className="flex flex-col gap-3">
-            <Field label="Seats">
+            <Field>
+              <FieldLabel>Seats</FieldLabel>
               <Input
                 type="number"
                 value={Math.round(tableData?.seats ?? 0)}
@@ -177,7 +209,8 @@ export default function PropertiesPanel({
                 }
               />
             </Field>
-            <Field label="Seats Occupied">
+            <Field>
+              <FieldLabel>Seats Occupied</FieldLabel>
               <Input
                 type="number"
                 value={Math.round(tableData?.seatsFilled ?? 0)}
@@ -186,7 +219,8 @@ export default function PropertiesPanel({
                 }
               />
             </Field>
-            <Field label="Open to more people?">
+            <Field>
+              <FieldLabel>Open to more people?</FieldLabel>
               <RadioGroup
                 value={tableData?.open ? "yes" : "no"}
                 onValueChange={(value) =>
@@ -205,7 +239,8 @@ export default function PropertiesPanel({
               </RadioGroup>
             </Field>
             {tableData?.open && (
-              <Field label="Interests (comma-separated)">
+              <Field>
+                <FieldLabel>Interests (comma-separated)</FieldLabel>
                 <Input
                   type="text"
                   value={tableData?.interests ?? ""}
@@ -218,149 +253,6 @@ export default function PropertiesPanel({
           </div>
         </TabsContent>
       </Tabs>
-
-      {/* {panel === "map" ? (
-        <div className="flex flex-col gap-3">
-          <Field label="Label">
-            <input
-              type="text"
-              value={fixture.label}
-              onChange={(e) => onChange({ label: e.target.value })}
-              className="input-field"
-            />
-          </Field>
-
-          <div className="grid grid-cols-2 gap-2">
-            <Field label="X">
-              <input
-                type="number"
-                value={Math.round(fixture.x)}
-                onChange={(e) => onChange({ x: Number(e.target.value) })}
-                className="input-field"
-              />
-            </Field>
-            <Field label="Y">
-              <input
-                type="number"
-                value={Math.round(fixture.y)}
-                onChange={(e) => onChange({ y: Number(e.target.value) })}
-                className="input-field"
-              />
-            </Field>
-            <Field label="W">
-              <input
-                type="number"
-                value={Math.round(fixture.width)}
-                onChange={(e) => onChange({ width: Number(e.target.value) })}
-                className="input-field"
-              />
-            </Field>
-            <Field label="H">
-              <input
-                type="number"
-                value={Math.round(fixture.height)}
-                onChange={(e) => onChange({ height: Number(e.target.value) })}
-                className="input-field"
-              />
-            </Field>
-          </div>
-
-          <Field label="Rotation (deg)">
-            <input
-              type="number"
-              value={Math.round(fixture.rotation)}
-              onChange={(e) => onChange({ rotation: Number(e.target.value) })}
-              className="input-field"
-            />
-          </Field>
-
-          <button
-            onClick={onDelete}
-            className="mt-auto w-full py-2 rounded-lg text-xs font-medium tracking-wide bg-[#2a1515] text-[#ff6b6b] border border-[#3a1e1e] hover:bg-[#3a1818] hover:border-[#ff6b6b] transition-all"
-          >
-            Delete fixture
-          </button>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3">
-          <Field label="Seats">
-            <input
-              type="number"
-              value={Math.round(tableData?.seats ?? 0)}
-              onChange={(e) =>
-                onChangeTableData({ seats: Number(e.target.value) })
-              }
-              className="input-field"
-            />
-          </Field>
-
-          <Field label="Seats filled">
-            <input
-              type="number"
-              value={Math.round(tableData?.seatsFilled ?? 0)}
-              onChange={(e) =>
-                onChangeTableData({ seatsFilled: Number(e.target.value) })
-              }
-              className="input-field"
-            />
-          </Field>
-
-          <Field label="Open to more people?">
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                className={
-                  tableData?.open
-                    ? "header-btn header-btn-primary"
-                    : "header-btn"
-                }
-                onClick={() => onChangeTableData({ open: true })}
-              >
-                Yes
-              </button>
-              <button
-                className={
-                  !tableData?.open
-                    ? "header-btn header-btn-primary"
-                    : "header-btn"
-                }
-                onClick={() => onChangeTableData({ open: false })}
-              >
-                No
-              </button>
-            </div>
-          </Field>
-
-          {tableData?.open && (
-            <Field label="Interests (comma-separated)">
-              <input
-                type="text"
-                value={tableData?.interests ?? ""}
-                onChange={(e) =>
-                  onChangeTableData({ interests: e.target.value })
-                }
-                className="input-field"
-              />
-            </Field>
-          )}
-        </div>
-      )} */}
-
-      {/* Extra metadata -- extend this per fixture type */}
-      {/* {(fixture.type === "table_round" || fixture.type === "table_rect") && (
-        <Field label="Seats">
-          <input
-            type="number"
-            value={(fixture.meta.seats as number) ?? ""}
-            onChange={(e) =>
-              onChange({
-                meta: { ...fixture.meta, seats: Number(e.target.value) },
-              })
-            }
-            className="input-field"
-            placeholder="e.g. 4"
-          />
-        </Field>
-      )} */}
 
       <style jsx>{`
         :global(.input-field) {
@@ -379,7 +271,7 @@ export default function PropertiesPanel({
   );
 }
 
-function Field({
+function Field2({
   label,
   children,
 }: {
@@ -387,11 +279,15 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-1">
-      <label className="text-[9px] uppercase tracking-widest text-[#3a4a60]">
-        {label}
-      </label>
+    <Field>
+      <FieldLabel>{label}</FieldLabel>
       {children}
-    </div>
+    </Field>
+    // <div className="flex flex-col gap-1">
+    //   <label className="text-[9px] uppercase tracking-widest text-[#3a4a60]">
+    //     {label}
+    //   </label>
+    //   {children}
+    // </div>
   );
 }

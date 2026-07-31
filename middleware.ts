@@ -1,0 +1,54 @@
+import { createServerClient } from "@supabase/ssr";
+import { NextRequest, NextResponse } from "next/server";
+
+// middleware.ts
+export async function middleware(request: NextRequest) {
+  const response = NextResponse.next({ request });
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_PROJECT_URL ?? "",
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "",
+    {
+      cookies: {
+        getAll() {
+          return [];
+        },
+        setAll(cookiesToSet) {
+          // Do nothing
+        },
+      },
+    },
+  );
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  console.log(request.url);
+  const isProtectedRoute =
+    request.nextUrl.pathname.startsWith("/account") ||
+    request.nextUrl.pathname.startsWith("/dashboard") ||
+    request.nextUrl.pathname.match(/^\/location\/(\d+)\/edit$/) ||
+    request.nextUrl.pathname.match(/^\/location\/(\d+)\/settings$/) ||
+    request.nextUrl.pathname.match(
+      /^\/location\/(\d+)\/room\/(\d+)\/period\/(\d+)\/edit$/,
+    );
+  const locationMatch = request.nextUrl.pathname.match(/^\/location\/([^/]+)/);
+
+  if (isProtectedRoute) {
+    if (!user) return NextResponse.redirect(new URL("/login", request.url));
+
+    // Only feasible if using an HTTP-compatible client (Supabase client, not Drizzle+pg)
+    if (locationMatch) {
+      const { data: location } = await supabase
+        .from("organizations")
+        .select("admin_id")
+        .eq("id", locationMatch[1])
+        .single();
+
+      if (!location || location.admin_id !== user.id) {
+        return NextResponse.redirect(new URL("/unauthorized", request.url));
+      }
+    }
+  }
+
+  return response;
+}

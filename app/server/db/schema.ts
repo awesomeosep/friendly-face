@@ -1,6 +1,5 @@
 import { relations } from "drizzle-orm";
-import { integer, pgTable } from "drizzle-orm/pg-core";
-import { text, timestamp, time, uuid, jsonb } from "drizzle-orm/pg-core";
+import { text, timestamp, time, uuid, jsonb, integer, pgTable } from "drizzle-orm/pg-core";
 
 export const adminTable = pgTable("admins", {
   id: uuid("id").primaryKey(),
@@ -12,7 +11,7 @@ export const adminTable = pgTable("admins", {
 });
 
 export const organizationTable = pgTable("organizations", {
-  id: integer("id").primaryKey(),
+  id: integer("id").primaryKey().$defaultFn(() => Math.floor(Math.random() * 1000000)),
   name: text("name").notNull(),
   code: text("code").notNull(),
   createdAt: timestamp("created_at")
@@ -25,7 +24,7 @@ export const organizationTable = pgTable("organizations", {
 });
 
 export const periodTable = pgTable("periods", {
-  id: integer("id").primaryKey(),
+  id: integer("id").primaryKey().$defaultFn(() => Math.floor(Math.random() * 1000000)),
   organization_id: integer("organization_id")
     .notNull()
     .references(() => organizationTable.id, { onDelete: "cascade" }),
@@ -38,7 +37,7 @@ export const periodTable = pgTable("periods", {
 });
 
 export const roomLayoutTable = pgTable("room_layouts", {
-  id: integer("id").primaryKey(),
+  id: integer("id").primaryKey().$defaultFn(() => Math.floor(Math.random() * 1000000)),
   organization_id: integer("organization_id")
     .notNull()
     .references(() => organizationTable.id, { onDelete: "cascade" }),
@@ -53,10 +52,13 @@ export const roomLayoutTable = pgTable("room_layouts", {
   created_at: timestamp("created_at")
     .$defaultFn(() => new Date())
     .notNull(),
+  updated_at: timestamp("updated_at")
+    .$defaultFn(() => new Date())
+    .notNull()
 });
 
 export const roomTable = pgTable("rooms", {
-  id: integer("id").primaryKey(),
+  id: integer("id").primaryKey().$defaultFn(() => Math.floor(Math.random() * 1000000)),
   organization_id: integer("organization_id")
     .notNull()
     .references(() => organizationTable.id, { onDelete: "cascade" }),

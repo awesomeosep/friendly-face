@@ -6,7 +6,6 @@ import { orpc } from "@/lib/orpc";
 import { useRouter, useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ORPCError } from "@orpc/client";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useState } from "react";
@@ -15,7 +14,6 @@ import {
   ItemActions,
   ItemContent,
   ItemDescription,
-  ItemMedia,
   ItemTitle,
 } from "@/components/ui/item";
 
@@ -148,7 +146,7 @@ export default function ViewOrgPage() {
                   onClick={() => {
                     if (selectedRoom && selectedPeriod) {
                       router.push(
-                        `/location/${organization.id}/view/room/${selectedRoom}/period/${selectedPeriod}`,
+                        `/location/${organization.id}/room/${selectedRoom}/period/${selectedPeriod}/view`,
                       );
                     }
                   }}
