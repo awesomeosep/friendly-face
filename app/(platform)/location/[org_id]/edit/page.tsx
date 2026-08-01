@@ -38,24 +38,12 @@ import {
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 import {
-  Sheet,
-  SheetHeader,
-  SheetTrigger,
-  SheetClose,
-  SheetFooter,
-  SheetDescription,
-  SheetContent,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -131,6 +119,7 @@ export default function ViewOrgPage() {
     const response = await orpc.org.updateRoomDetails.call({
       id: roomId,
       label: newRoomName,
+      organization_id: orgId
     });
     await refetch();
     console.log(response);
@@ -147,6 +136,7 @@ export default function ViewOrgPage() {
     setLoadingDeleteItem(true);
     const response = await orpc.org.deleteRoom.call({
       id: roomId,
+      organization_id: orgId,
     });
     console.log(response);
     toast.success("Room deleted.");
@@ -198,6 +188,7 @@ export default function ViewOrgPage() {
       label: newPeriodLabel,
       start_time: newPeriodStartTime,
       end_time: newPeriodEndTime,
+      organization_id: orgId,
     });
     await refetch();
     console.log(response);
@@ -213,6 +204,7 @@ export default function ViewOrgPage() {
     setLoadingDeleteItem(true);
     const response = await orpc.org.deletePeriod.call({
       id: periodId,
+      organization_id: orgId,
     });
     console.log(response);
     toast.success("Period deleted.");
@@ -251,6 +243,7 @@ export default function ViewOrgPage() {
       id: layoutId,
       label: label,
       layout_data: JSON.stringify(layoutData),
+      organization_id: orgId,
     });
     toast.success("Layout updated.");
     await refetch();
@@ -271,6 +264,7 @@ export default function ViewOrgPage() {
       from_id: fromId,
       to_id: toId,
       copy_table_data: copyTableData,
+      organization_id: orgId,
     });
     toast.success("Layout transferred.");
     await refetch();

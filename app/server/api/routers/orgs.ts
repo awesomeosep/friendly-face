@@ -1,5 +1,5 @@
 import { db } from "@/server/db";
-import { os } from "@orpc/server";
+import { ORPCError, os } from "@orpc/server";
 import { type Context } from "../../context";
 import {
   LayoutDataSchema,
@@ -31,6 +31,46 @@ export const authed = base.use(async ({ context, next }) => {
   });
 });
 
+export const locationAdmin = os
+  .$context<Context & { user: NonNullable<Context["user"]> }>()
+  .middleware(async ({ context, next }, organization_id: number) => {
+    const [location] = await context.db
+      .select()
+      .from(organizationTable)
+      .where(eq(organizationTable.id, organization_id));
+
+    if (!location) throw new ORPCError("NOT_FOUND");
+    if (location.admin_id !== context.user.id) throw new ORPCError("FORBIDDEN");
+
+    return next({ context: { location } });
+  });
+
+  export const roomInLocation = os
+  .$context<Context & { user: NonNullable<Context["user"]> }>()
+  .middleware(async ({ context, next }, data_input: { room_id: number; organization_id: number }) => {
+    const [room] = await context.db
+      .select()
+      .from(roomTable)
+      .where(and(eq(roomTable.id, data_input.room_id), eq(roomTable.organization_id, data_input.organization_id)));
+
+    if (!room) throw new ORPCError("NOT_FOUND");
+
+    return next({ context: { room } });
+  });
+
+  export const periodInLocation = os
+  .$context<Context & { user: NonNullable<Context["user"]> }>()
+  .middleware(async ({ context, next }, data_input: { period_id: number; organization_id: number }) => {
+    const [period] = await context.db
+      .select()
+      .from(periodTable)
+      .where(and(eq(periodTable.id, data_input.period_id), eq(periodTable.organization_id, data_input.organization_id)));
+
+    if (!period) throw new ORPCError("NOT_FOUND");
+
+    return next({ context: { period } });
+  });
+
 const FindRoomLayoutInputSchema = z.object({
   org_id: z.string(),
   room_id: z.string(),
@@ -38,7 +78,7 @@ const FindRoomLayoutInputSchema = z.object({
 });
 
 export const orgRouter = {
-  findByCode: os
+  findByCode: base
     .input(OrgSchema.pick({ code: true }))
     .handler(async ({ input }) => {
       const org = await db.query.organizationTable.findFirst({
@@ -51,7 +91,7 @@ export const orgRouter = {
       });
       return org || null;
     }),
-  findById: os
+  findById: base
     .input(OrgSchema.pick({ id: true }))
     .handler(async ({ input }) => {
       const org = await db.query.organizationTable.findFirst({
@@ -86,10 +126,12 @@ export const orgRouter = {
         id: true,
         label: true,
         layout_data: true,
+        organization_id: true,
       }).extend({
         layout_data: z.string().optional(),
       }),
     )
+    .use(locationAdmin, (input) => input.organization_id)
     .handler(async ({ input }) => {
       console.log(input.layout_data);
       try {
@@ -103,7 +145,12 @@ export const orgRouter = {
         const roomLayout = await db
           .update(roomLayoutTable)
           .set(updatedInput)
-          .where(eq(roomLayoutTable.id, input.id))
+          .where(
+            and(
+              eq(roomLayoutTable.organization_id, input.organization_id),
+              eq(roomLayoutTable.id, input.id),
+            ),
+          )
           .returning();
         return roomLayout || null;
       } catch (error) {
@@ -113,6 +160,7 @@ export const orgRouter = {
     }),
   addRoom: authed
     .input(RoomSchema.pick({ organization_id: true, label: true }))
+    .use(locationAdmin, (input) => input.organization_id)
     .handler(async ({ input }) => {
       try {
         const newRoom = await db
@@ -148,7 +196,8 @@ export const orgRouter = {
       }
     }),
   updateRoomDetails: authed
-    .input(RoomSchema.pick({ id: true, label: true }))
+    .input(RoomSchema.pick({ organization_id: true, id: true, label: true }))
+    .use(locationAdmin, (input) => input.organization_id)
     .handler(async ({ input }) => {
       try {
         const newRoom = await db
@@ -156,7 +205,7 @@ export const orgRouter = {
           .set({
             label: input.label,
           })
-          .where(eq(roomTable.id, input.id))
+          .where(and(eq(roomTable.organization_id, input.organization_id), eq(roomTable.id, input.id)))
           .returning();
         return newRoom || null;
       } catch (error) {
@@ -165,12 +214,13 @@ export const orgRouter = {
       }
     }),
   deleteRoom: authed
-    .input(RoomSchema.pick({ id: true }))
+    .input(RoomSchema.pick({ organization_id: true, id: true }))
+    .use(locationAdmin, (input) => input.organization_id)
     .handler(async ({ input }) => {
       try {
         const deletedRoom = await db
           .delete(roomTable)
-          .where(eq(roomTable.id, input.id))
+          .where(and(eq(roomTable.organization_id, input.organization_id), eq(roomTable.id, input.id)))
           .returning();
         return deletedRoom || null;
       } catch (error) {
@@ -187,6 +237,7 @@ export const orgRouter = {
         end_time: true,
       }),
     )
+    .use(locationAdmin, (input) => input.organization_id)
     .handler(async ({ input }) => {
       try {
         const newPeriod = await db
@@ -230,8 +281,10 @@ export const orgRouter = {
         label: true,
         start_time: true,
         end_time: true,
+        organization_id: true,
       }),
     )
+    .use(locationAdmin, (input) => input.organization_id)
     .handler(async ({ input }) => {
       try {
         const newPeriod = await db
@@ -241,7 +294,7 @@ export const orgRouter = {
             start_time: input.start_time,
             end_time: input.end_time,
           })
-          .where(eq(periodTable.id, input.id))
+          .where(and(eq(periodTable.organization_id, input.organization_id), eq(periodTable.id, input.id)))
           .returning();
         return newPeriod || null;
       } catch (error) {
@@ -250,12 +303,13 @@ export const orgRouter = {
       }
     }),
   deletePeriod: authed
-    .input(PeriodSchema.pick({ id: true }))
+    .input(PeriodSchema.pick({ id: true, organization_id: true }))
+    .use(locationAdmin, (input) => input.organization_id)
     .handler(async ({ input }) => {
       try {
         const deletedPeriod = await db
           .delete(periodTable)
-          .where(eq(periodTable.id, input.id))
+          .where(and(eq(periodTable.organization_id, input.organization_id), eq(periodTable.id, input.id)))
           .returning();
         return deletedPeriod || null;
       } catch (error) {
@@ -272,6 +326,9 @@ export const orgRouter = {
         label: true,
       }),
     )
+    .use(locationAdmin, (input) => input.organization_id)
+    .use(roomInLocation, (input) => {return {"room_id": input.room_id, "organization_id": input.organization_id}})
+    .use(periodInLocation, (input) => {return {"period_id": input.time_period_id, "organization_id": input.organization_id}})
     .handler(async ({ input }) => {
       try {
         const newRoomLayout = await db
@@ -302,8 +359,12 @@ export const orgRouter = {
         from_id: z.number().int(),
         to_id: z.number().int(),
         copy_table_data: z.boolean(),
+        organization_id: z.number().int(),
       }),
     )
+    .use(locationAdmin, (input) => input.organization_id)
+    .use(roomInLocation, (input) => ({"room_id": input.from_id, "organization_id": input.organization_id}))
+    .use(roomInLocation, (input) => ({"room_id": input.to_id, "organization_id": input.organization_id}))
     .handler(async ({ input }) => {
       try {
         const fromLayout = await db.query.roomLayoutTable.findFirst({
@@ -330,16 +391,14 @@ export const orgRouter = {
           updatedValues.layout_data.tableData = fromLayoutParsed.fixtures
             .filter((item) => item.type.startsWith("table"))
             .map((tableFixture) => {
-              return (
-                {
-                  id: tableFixture.id,
-                  seats: 8,
-                  seatsFilled: 0,
-                  open: true,
-                  interests: "",
-                  other: {},
-                }
-              );
+              return {
+                id: tableFixture.id,
+                seats: 8,
+                seatsFilled: 0,
+                open: true,
+                interests: "",
+                other: {},
+              };
             });
         }
         console.log("updatedValues: ", updatedValues);

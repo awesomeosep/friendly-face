@@ -2,25 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 
 // middleware.ts
-export async function middleware(request: NextRequest) {
-  const response = NextResponse.next({ request });
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_PROJECT_URL ?? "",
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "",
-    {
-      cookies: {
-        getAll() {
-          return [];
-        },
-        setAll(cookiesToSet) {
-          // Do nothing
-        },
-      },
-    },
-  );
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+export async function proxy(request: NextRequest) {
+  let response = NextResponse.next({ request });
 
   console.log(request.url);
   const isProtectedRoute =
@@ -34,17 +17,46 @@ export async function middleware(request: NextRequest) {
   const locationMatch = request.nextUrl.pathname.match(/^\/location\/([^/]+)/);
 
   if (isProtectedRoute) {
+    console.log("protected");
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_PROJECT_URL ?? "",
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "",
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value }) =>
+              request.cookies.set(name, value),
+            );
+            response = NextResponse.next({ request });
+            cookiesToSet.forEach(({ name, value, options }) =>
+              response.cookies.set(name, value, options),
+            );
+          },
+        },
+      },
+    );
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return NextResponse.redirect(new URL("/login", request.url));
 
     // Only feasible if using an HTTP-compatible client (Supabase client, not Drizzle+pg)
     if (locationMatch) {
+      console.log("location match");
       const { data: location } = await supabase
         .from("organizations")
         .select("admin_id")
-        .eq("id", locationMatch[1])
+        .eq("id", parseInt(locationMatch[1]))
         .single();
 
+      console.log(locationMatch[1]);
+      console.log(location);
+
       if (!location || location.admin_id !== user.id) {
+        console.log("unauthed");
         return NextResponse.redirect(new URL("/unauthorized", request.url));
       }
     }
