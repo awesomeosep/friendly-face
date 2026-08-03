@@ -5,10 +5,6 @@ import { Stage, Layer, Line } from "react-konva";
 import Konva from "konva";
 import { useEditorStore } from "./useEditorStore";
 import { FixtureType, FIXTURE_DEFAULTS, RoomData } from "./types";
-// import FixtureShape from "./FixtureShape";
-// import Toolbar from "./Toolbar";
-// import PropertiesPanel from "./PropertiesPanel";
-// import HeaderBar from "./HeaderBar";
 import Toolbar from "./Toolbar";
 import FixtureShape from "./FixtureShape";
 import PropertiesPanel from "./PropertiesPanel";
@@ -21,7 +17,7 @@ import { useParams } from "next/navigation";
 
 const GRID_SIZE = 20;
 const MIN_SCALE = 0.45;
-const MAX_SCALE = 2.5;
+const MAX_SCALE = 8;
 
 type ParamsType = {
   org_id: string;
@@ -29,24 +25,62 @@ type ParamsType = {
   period_id: string;
 };
 
+Konva.hitOnDragEnabled = true;
+
 export default function RoomEditor(props: { mode: "edit" | "view" }) {
   const orgId = parseInt(useParams<ParamsType>().org_id);
   const roomId = parseInt(useParams<ParamsType>().room_id);
   const periodId = parseInt(useParams<ParamsType>().period_id);
 
   const stageRef = useRef<Konva.Stage>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [stageSize, setStageSize] = useState({ width: 800, height: 600 });
+  // const containerRef = useRef<HTMLDivElement>(null);
+  const [stageSize, setStageSize] = useState<{
+    width: number | null;
+    height: number | null;
+  }>({ width: null, height: null });
   const [viewport, setViewport] = useState({ scale: 1, x: 0, y: 0 });
   // const [mode, setMode] = useState<"map" | "table" | "view">("map");
   const [propertiesPanel, setPropertiesPanel] = useState<"map" | "data">("map");
   const [pendingFixture, setPendingFixture] = useState<FixtureType | null>(
     null,
   );
-  const pinchStateRef = useRef<{ distance: number; scale: number } | null>(
+  const pinchStateRef = useRef<{
+    lastCenter: { x: number; y: number };
+    lastDistance: number;
+  } | null>(null);
+  const pinchFrameRef = useRef<number | null>(null);
+  const pinchViewportRef = useRef<{ scale: number; x: number; y: number } | null>(
     null,
   );
   const [loadingSave, setLoadingSave] = useState(false);
+  const [containerElement, setContainerElement] = useState<HTMLElement | null>(
+    null,
+  );
+
+  useEffect(() => {
+    return () => {
+      if (pinchFrameRef.current !== null) {
+        window.cancelAnimationFrame(pinchFrameRef.current);
+      }
+    };
+  }, []);
+
+  // useEffect(() => {
+  //   const updateSize = () => {
+  //     if (containerElement) {
+  //       console.log("width", containerElement.clientWidth);
+  //       console.log("height", containerElement.clientHeight);
+  //       setStageSize({
+  //         width: containerElement.clientWidth,
+  //         height: containerElement.clientHeight,
+  //       });
+  //     }
+  //   };
+
+  //   console.log("size effect");
+  //   updateSize();
+
+  // }, [containerRef]);
 
   const {
     room,
@@ -96,7 +130,8 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
           canvasHeight: roomData.layout_data?.canvasHeight ?? 700,
           fixtures: roomData.layout_data?.fixtures ?? [],
           tableData: roomData.layout_data?.tableData ?? [],
-          updatedAt: roomData.updated_at?.toISOString() ?? new Date().toISOString(),
+          updatedAt:
+            roomData.updated_at?.toISOString() ?? new Date().toISOString(),
         };
         importRoom(newRoomData);
       }
@@ -108,12 +143,27 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
     room.fixtures.find((f) => f.id === selectedId) ?? null;
   const selectedTableData =
     room.tableData.find((f) => f.id === selectedId) ?? null;
-  const isMobile = stageSize.width < 900;
+  const [isMobile, setIsMobile] = useState<boolean>(stageSize.width ? stageSize.width < 900 : false);
 
   const clampScale = useCallback(
     (value: number) => Math.max(MIN_SCALE, Math.min(MAX_SCALE, value)),
     [],
   );
+
+  const getStageSize = useCallback(() => {
+    const stage = stageRef.current;
+    if (stage) {
+      return {
+        width: Math.max(1, stage.width()),
+        height: Math.max(1, stage.height()),
+      };
+    }
+
+    return {
+      width: Math.max(1, stageSize.width ?? 1000),
+      height: Math.max(1, stageSize.height ?? 800),
+    };
+  }, [stageSize.height, stageSize.width]);
 
   const zoomToPoint = useCallback(
     (point: { x: number; y: number }, nextScale: number) => {
@@ -137,28 +187,53 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
   const fitViewport = useCallback(() => {
     const canvasWidth = Math.max(1, room.canvasWidth);
     const canvasHeight = Math.max(1, room.canvasHeight);
-    const availableWidth = Math.max(1, stageSize.width - 48);
-    const availableHeight = Math.max(1, stageSize.height - 48);
+    const { width: stageWidth, height: stageHeight } = getStageSize();
+    const padding = 48;
+    const availableWidth = Math.max(1, stageWidth - padding);
+    const availableHeight = Math.max(1, stageHeight - padding);
     const scale = clampScale(
-      Math.min(availableWidth / canvasWidth, availableHeight / canvasHeight, 1),
+      Math.min(availableWidth / canvasWidth, availableHeight / canvasHeight),
     );
 
     setViewport({
       scale,
-      x: (stageSize.width - canvasWidth * scale) / 2,
-      y: (stageSize.height - canvasHeight * scale) / 2,
+      x: (stageWidth - canvasWidth * scale) / 2,
+      y: (stageHeight - canvasHeight * scale) / 2,
     });
   }, [
     clampScale,
+    getStageSize,
     room.canvasHeight,
     room.canvasWidth,
-    stageSize.height,
-    stageSize.width,
   ]);
+
+  const containerRef = useCallback((node: HTMLElement | null) => {
+    const updateSize = (node: HTMLElement | null) => {
+      console.log("update size");
+      if (node) {
+        console.log("width", node.clientWidth);
+        console.log("height", node.clientHeight);
+        setStageSize({
+          width: node.clientWidth,
+          height: node.clientHeight,
+        });
+        setIsMobile(node.clientWidth < 900);
+        fitViewport();
+      }
+    };
+
+    if (node !== null) {
+      setContainerElement(node);
+      updateSize(node);
+    }
+
+    window.removeEventListener("resize", () => updateSize(containerElement));
+    window.addEventListener("resize", () => updateSize(containerElement));
+  }, []);
 
   // Resize canvas to fill container
   useEffect(() => {
-    const el = containerRef.current;
+    const el = containerElement;
     if (!el) return;
     const ro = new ResizeObserver(() => {
       setStageSize({ width: el.clientWidth, height: el.clientHeight });
@@ -169,7 +244,7 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
   }, []);
 
   useEffect(() => {
-    if (stageSize.width <= 0 || stageSize.height <= 0) return;
+    if ((stageSize.width ?? 0) <= 0 || (stageSize.height ?? 0) <= 0) return;
     if (viewport.scale === 1 && viewport.x === 0 && viewport.y === 0) {
       fitViewport();
     }
@@ -263,14 +338,24 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
   const handleTouchStart = useCallback(
     (e: Konva.KonvaEventObject<TouchEvent>) => {
       if (e.evt.touches.length !== 2) return;
+
+      const stage = stageRef.current;
+      if (!stage) return;
+      stage.draggable(false);
+
       const [firstTouch, secondTouch] = Array.from(e.evt.touches);
+      const container = stage.container().getBoundingClientRect();
+      const center = {
+        x: (firstTouch.clientX + secondTouch.clientX) / 2 - container.left,
+        y: (firstTouch.clientY + secondTouch.clientY) / 2 - container.top,
+      };
       const distance = Math.hypot(
         firstTouch.clientX - secondTouch.clientX,
         firstTouch.clientY - secondTouch.clientY,
       );
-      pinchStateRef.current = { distance, scale: viewport.scale };
+      pinchStateRef.current = { lastCenter: center, lastDistance: distance };
     },
-    [viewport.scale],
+    [],
   );
 
   const handleTouchMove = useCallback(
@@ -278,37 +363,97 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
       if (e.evt.touches.length !== 2 || !pinchStateRef.current) return;
       e.evt.preventDefault();
 
+      const stage = stageRef.current;
+      if (!stage) return;
+      if (stage.isDragging()) {
+        stage.stopDrag();
+      }
+
       const [firstTouch, secondTouch] = Array.from(e.evt.touches);
       const distance = Math.hypot(
         firstTouch.clientX - secondTouch.clientX,
         firstTouch.clientY - secondTouch.clientY,
       );
-      const container = containerRef.current?.getBoundingClientRect();
+      const container = stage.container().getBoundingClientRect();
       if (!container) return;
 
       const center = {
         x: (firstTouch.clientX + secondTouch.clientX) / 2 - container.left,
         y: (firstTouch.clientY + secondTouch.clientY) / 2 - container.top,
       };
-      const nextScale = clampScale(
-        pinchStateRef.current.scale *
-          (distance / pinchStateRef.current.distance),
-      );
 
-      zoomToPoint(center, nextScale);
-      pinchStateRef.current = { distance, scale: nextScale };
+      const scaleBy = distance / pinchStateRef.current.lastDistance;
+      const currentScale = stage.scaleX();
+      const nextScale = clampScale(currentScale * scaleBy);
+      const worldPoint = {
+        x: (center.x - stage.x()) / currentScale,
+        y: (center.y - stage.y()) / currentScale,
+      };
+      const centerDelta = {
+        x: center.x - pinchStateRef.current.lastCenter.x,
+        y: center.y - pinchStateRef.current.lastCenter.y,
+      };
+
+      const nextViewport = {
+        scale: nextScale,
+        x: center.x - worldPoint.x * nextScale + centerDelta.x,
+        y: center.y - worldPoint.y * nextScale + centerDelta.y,
+      };
+
+      stage.scale({ x: nextViewport.scale, y: nextViewport.scale });
+      stage.position({ x: nextViewport.x, y: nextViewport.y });
+      stage.batchDraw();
+
+      pinchViewportRef.current = nextViewport;
+      if (pinchFrameRef.current === null) {
+        pinchFrameRef.current = window.requestAnimationFrame(() => {
+          pinchFrameRef.current = null;
+          const pendingViewport = pinchViewportRef.current;
+          if (pendingViewport) {
+            setViewport(pendingViewport);
+          }
+        });
+      }
+
+      pinchStateRef.current = { lastCenter: center, lastDistance: distance };
     },
-    [clampScale, zoomToPoint],
+    [clampScale],
   );
 
   const handleTouchEnd = useCallback(
     (e: Konva.KonvaEventObject<TouchEvent>) => {
       if (e.evt.touches.length < 2) {
         pinchStateRef.current = null;
+        const stage = stageRef.current;
+        if (stage) {
+          stage.draggable(true);
+          setViewport({
+            scale: stage.scaleX(),
+            x: stage.x(),
+            y: stage.y(),
+          });
+        }
       }
     },
     [],
   );
+
+  const handleTouchCancel = useCallback(() => {
+    pinchStateRef.current = null;
+    const stage = stageRef.current;
+    if (stage) {
+      stage.draggable(true);
+      setViewport({
+        scale: stage.scaleX(),
+        x: stage.x(),
+        y: stage.y(),
+      });
+    }
+    if (pinchFrameRef.current !== null) {
+      window.cancelAnimationFrame(pinchFrameRef.current);
+      pinchFrameRef.current = null;
+    }
+  }, []);
 
   const handleCanvasDragMove = useCallback(() => {
     const stage = stageRef.current;
@@ -320,15 +465,17 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
   }, []);
 
   const handleZoomIn = () => {
+    const { width, height } = getStageSize();
     zoomToPoint(
-      { x: stageSize.width / 2, y: stageSize.height / 2 },
+      { x: width / 2, y: height / 2 },
       viewport.scale * 1.2,
     );
   };
 
   const handleZoomOut = () => {
+    const { width, height } = getStageSize();
     zoomToPoint(
-      { x: stageSize.width / 2, y: stageSize.height / 2 },
+      { x: width / 2, y: height / 2 },
       viewport.scale / 1.2,
     );
   };
@@ -359,6 +506,7 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
         id,
         label: name,
         layout_data: JSON.stringify(submitData),
+        organization_id: orgId,
       });
       if (!response) {
         toast.error("Error saving room data.");
@@ -388,7 +536,7 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
   };
 
   return (
-    <div className="flex min-h-[100dvh] h-[100dvh] flex-col overflow-hidden">
+    <div className="flex h-full flex-col overflow-hidden">
       {/* <HeaderBar
         roomName={room.name}
         onNameChange={setRoomName}
@@ -397,120 +545,146 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
         mode={mode}
         onToggleMode={handleToggleMode}
       /> */}
-
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row overflow-hidden">
-        {props.mode === "edit" && (
-          <Toolbar onAdd={handleToolbarAdd} isMobile={isMobile} />
-        )}
-
-        {/* Canvas */}
-        <div
-          ref={containerRef}
-          className="relative flex-1 min-h-[44vh] lg:min-h-0 overflow-hidden touch-none"
-          style={{
-            cursor: pendingFixture ? "crosshair" : "default",
-          }}
-        >
-          <div className="absolute right-3 top-3 z-20 flex items-center gap-2 rounded-full border px-2 py-1 backdrop-blur drop-shadow-lg">
-            <button
-              type="button"
-              onClick={handleZoomOut}
-              className="canvas-control-btn"
-              aria-label="Zoom out"
-            >
-              -
-            </button>
-            <button
-              type="button"
-              onClick={fitViewport}
-              className="canvas-control-btn text-sm"
-              aria-label="Fit to screen"
-            >
-              Fit
-            </button>
-            <button
-              type="button"
-              onClick={handleZoomIn}
-              className="canvas-control-btn"
-              aria-label="Zoom in"
-            >
-              +
-            </button>
+      {roomDataLoading ? (
+        <div className="flex flex-col w-screen max-w-screen items-center py-16 pb-24 pt-24 h-full">
+          <div className="flex flex-col w-full gap-4 max-w-md px-8">
+            <div className="flex flex-col max-w-full gap-4">Loading...</div>
           </div>
-
-          {pendingFixture && (
-            <div className="absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded-full border border-[#4a9eff] bg-[#0d2140] px-3 py-1.5 text-xs font-medium text-[#4a9eff] pointer-events-none">
-              Tap to place - drag to pan - pinch to zoom
-            </div>
-          )}
-
-          <Stage
-            ref={stageRef}
-            width={stageSize.width}
-            height={stageSize.height}
-            onClick={handleStageClick}
-            onWheel={handleWheel}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            onDragMove={handleCanvasDragMove}
-            draggable={true}
-            x={viewport.x}
-            y={viewport.y}
-            scaleX={viewport.scale}
-            scaleY={viewport.scale}
-          >
-            <Layer>{gridLines()}</Layer>
-            <Layer>
-              {room.fixtures.map((fixture) => (
-                <FixtureShape
-                  key={fixture.id}
-                  fixture={fixture}
-                  isSelected={fixture.id === selectedId}
-                  isSelectable={
-                    props.mode === "view"
-                      ? fixture.type.startsWith("table") &&
-                        room.tableData.find((t) => t.id === fixture.id)?.open
-                      : true
-                  }
-                  isEditable={props.mode === "edit"}
-                  onSelect={() => {
-                    setPropertiesPanel("map");
-                    selectFixture(fixture.id);
-                  }}
-                  onChange={(changes) => updateFixture(fixture.id, changes)}
-                  tableActiveColor={
-                    props.mode !== "edit" && fixture.type.startsWith("table")
-                      ? room.tableData.find((t) => t.id === fixture.id)?.open
-                        ? undefined
-                        : "#8a9bb0"
-                      : undefined
-                  }
-                />
-              ))}
-            </Layer>
-          </Stage>
         </div>
+      ) : !roomData ? (
+        <div className="flex flex-col w-screen max-w-screen items-center py-16 pb-24 pt-24 h-full">
+          <div className="flex flex-col w-full gap-4 max-w-md px-8">
+            <div className="flex flex-col max-w-full gap-4">
+              <p>Room layout not found.</p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col w-full h-full">
+          <div className="flex min-h-0 flex-1 flex-col lg:flex-row overflow-hidden">
+            {props.mode === "edit" && (
+              <Toolbar onAdd={handleToolbarAdd} isMobile={isMobile} />
+            )}
 
-        {props.mode === "edit" && (
-          <PropertiesPanel
-            room={room}
-            fixture={selectedFixture}
-            isMobile={isMobile}
-            onChange={(changes) =>
-              selectedId && updateFixture(selectedId, changes)
-            }
-            onChangeRoom={(changes) => updateRoom(changes)}
-            onChangeTableData={(changes) =>
-              selectedId && updateTableData(selectedId, changes)
-            }
-            onDelete={() => selectedId && deleteFixture(selectedId)}
-            onSaveData={saveDataToServer}
-            loadingSave={loadingSave}
-          />
-        )}
+            {/* Canvas */}
+            <div
+              ref={containerRef}
+              className="relative flex-1 lg:min-h-0 overflow-hidden touch-none"
+              style={{
+                cursor: pendingFixture ? "crosshair" : "default",
+              }}
+            >
+              <div className={`absolute right-3 top-3 mt-${isMobile ? '16' : '0'} z-20 flex items-center gap-2 rounded-full border px-2 py-1 backdrop-blur drop-shadow-lg`}>
+                <button
+                  type="button"
+                  onClick={handleZoomOut}
+                  className="canvas-control-btn"
+                  aria-label="Zoom out"
+                >
+                  -
+                </button>
+                <button
+                  type="button"
+                  onClick={fitViewport}
+                  className="canvas-control-btn text-sm"
+                  aria-label="Fit to screen"
+                >
+                  Fit
+                </button>
+                <button
+                  type="button"
+                  onClick={handleZoomIn}
+                  className="canvas-control-btn"
+                  aria-label="Zoom in"
+                >
+                  +
+                </button>
+              </div>
 
-        {/* {mode === "table" && (
+              {pendingFixture && (
+                <div className="absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded-full border border-[#4a9eff] bg-[#0d2140] px-3 py-1.5 text-xs font-medium text-[#4a9eff] pointer-events-none">
+                  Tap to place - drag to pan - pinch to zoom
+                </div>
+              )}
+              {stageSize.width && stageSize.height ? (
+                <Stage
+                  ref={stageRef}
+                  width={stageSize.width ?? 1000}
+                  height={stageSize.height ?? 800}
+                  onClick={handleStageClick}
+                  onWheel={handleWheel}
+                  onTouchStart={handleTouchStart}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
+                  onTouchCancel={handleTouchCancel}
+                  onDragMove={handleCanvasDragMove}
+                  draggable={true}
+                  x={viewport.x}
+                  y={viewport.y}
+                  scaleX={viewport.scale}
+                  scaleY={viewport.scale}
+                >
+                  <Layer>{gridLines()}</Layer>
+                  <Layer>
+                    {room.fixtures.map((fixture) => (
+                      <FixtureShape
+                        key={fixture.id}
+                        fixture={fixture}
+                        isSelected={fixture.id === selectedId}
+                        isSelectable={
+                          props.mode === "view"
+                            ? fixture.type.startsWith("table") &&
+                              room.tableData.find((t) => t.id === fixture.id)
+                                ?.open
+                            : true
+                        }
+                        isEditable={props.mode === "edit"}
+                        onSelect={() => {
+                          setPropertiesPanel("map");
+                          selectFixture(fixture.id);
+                        }}
+                        onChange={(changes) =>
+                          updateFixture(fixture.id, changes)
+                        }
+                        tableActiveColor={
+                          props.mode !== "edit" &&
+                          fixture.type.startsWith("table")
+                            ? room.tableData.find((t) => t.id === fixture.id)
+                                ?.open
+                              ? undefined
+                              : "#8a9bb0"
+                            : undefined
+                        }
+                      />
+                    ))}
+                  </Layer>
+                </Stage>
+              ) : (
+                <div className="flex flex-col w-full h-full items-center justify-center gap-4">
+                  <p>Loading map...</p>
+                </div>
+              )}
+            </div>
+
+            {props.mode === "edit" && (
+              <PropertiesPanel
+                room={room}
+                fixture={selectedFixture}
+                isMobile={isMobile}
+                onChange={(changes) =>
+                  selectedId && updateFixture(selectedId, changes)
+                }
+                onChangeRoom={(changes) => updateRoom(changes)}
+                onChangeTableData={(changes) =>
+                  selectedId && updateTableData(selectedId, changes)
+                }
+                onDelete={() => selectedId && deleteFixture(selectedId)}
+                onSaveData={saveDataToServer}
+                loadingSave={loadingSave}
+              />
+            )}
+
+            {/* {mode === "table" && (
           <TablePropertiesPanel
             fixture={selectedFixture}
             tableData={selectedTableData}
@@ -521,36 +695,40 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
           />
         )} */}
 
-        {props.mode === "view" && (
-          <ViewPropertiesPanel
-            fixture={selectedFixture}
-            tableData={selectedTableData}
-            isMobile={isMobile}
-          />
-        )}
-      </div>
+            {props.mode === "view" && (
+              <ViewPropertiesPanel
+                fixture={selectedFixture}
+                tableData={selectedTableData}
+                isMobile={isMobile}
+              />
+            )}
+          </div>
 
-      {/* Status bar */}
-      {props.mode == "edit" && (
-        <div className="h-6  border-t  flex items-center px-4 gap-4">
-          <span className="text-[10px] text-[#3a4a60]">
-            {room.fixtures.length} fixture
-            {room.fixtures.length !== 1 ? "s" : ""}
-          </span>
-          {selectedFixture && (
-            <span className="text-[10px] text-[#4a9eff]">
-              {selectedFixture.type} x{Math.round(selectedFixture.x)} y
-              {Math.round(selectedFixture.y)}
-            </span>
+          {/* Status bar */}
+          {props.mode == "edit" && (
+            <div className="h-6  border-t  flex items-center px-4 gap-4">
+              <span className="text-[10px] text-[#3a4a60]">
+                {room.fixtures.length} fixture
+                {room.fixtures.length !== 1 ? "s" : ""}
+              </span>
+              {selectedFixture && (
+                <span className="text-[10px] text-[#4a9eff]">
+                  {selectedFixture.type} x{Math.round(selectedFixture.x)} y
+                  {Math.round(selectedFixture.y)}
+                </span>
+              )}
+              <span className="ml-auto text-[10px] text-[#2a3545]">
+                Last saved: {new Date(room.updatedAt).toLocaleTimeString()}
+              </span>
+            </div>
           )}
-          <span className="ml-auto text-[10px] text-[#2a3545]">
-            Last saved: {new Date(room.updatedAt).toLocaleTimeString()}
-          </span>
+
+          {/* Esc cancels placement */}
+          {pendingFixture && (
+            <EscListener onEsc={() => setPendingFixture(null)} />
+          )}
         </div>
       )}
-
-      {/* Esc cancels placement */}
-      {pendingFixture && <EscListener onEsc={() => setPendingFixture(null)} />}
     </div>
   );
 }

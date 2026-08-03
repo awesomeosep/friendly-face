@@ -42,12 +42,15 @@ export default function PropertiesPanel({
         </Field>
       </div>
       <p>This table is welcoming new people!</p>
-      <Field label="Seats Open">
-        <p>
-          {(tableData?.seats ?? 0) - (tableData?.seatsFilled ?? 0)}/
-          {tableData?.seats ?? 0}
-        </p>
-      </Field>
+      {false && (
+        <Field label="Seats Open">
+          <p>
+            {(tableData?.seats ?? 0) - (tableData?.seatsFilled ?? 0)}/
+            {tableData?.seats ?? 0}
+            
+          </p>
+        </Field>
+      )}
       <Field label="Interests">
         <p>{tableData?.interests ?? "No interests entered"}</p>
       </Field>

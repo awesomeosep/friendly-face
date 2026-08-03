@@ -5,7 +5,6 @@ import { NextRequest, NextResponse } from "next/server";
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
-  console.log(request.url);
   const isProtectedRoute =
     request.nextUrl.pathname.startsWith("/account") ||
     request.nextUrl.pathname.startsWith("/dashboard") ||
@@ -17,7 +16,6 @@ export async function proxy(request: NextRequest) {
   const locationMatch = request.nextUrl.pathname.match(/^\/location\/([^/]+)/);
 
   if (isProtectedRoute) {
-    console.log("protected");
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_PROJECT_URL ?? "",
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "",
@@ -45,18 +43,13 @@ export async function proxy(request: NextRequest) {
 
     // Only feasible if using an HTTP-compatible client (Supabase client, not Drizzle+pg)
     if (locationMatch) {
-      console.log("location match");
       const { data: location } = await supabase
         .from("organizations")
         .select("admin_id")
         .eq("id", parseInt(locationMatch[1]))
         .single();
 
-      console.log(locationMatch[1]);
-      console.log(location);
-
       if (!location || location.admin_id !== user.id) {
-        console.log("unauthed");
         return NextResponse.redirect(new URL("/unauthorized", request.url));
       }
     }

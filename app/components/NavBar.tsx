@@ -14,7 +14,7 @@ import {
   MenubarTrigger,
 } from "@/components/ui/menubar";
 import { supabaseClient } from "@/lib/auth-client";
-import { UserRound } from "lucide-react";
+import { LaughIcon, SmileIcon, UserRound } from "lucide-react";
 
 export default function NavigationMenuDemo() {
   const router = useRouter();
@@ -34,10 +34,15 @@ export default function NavigationMenuDemo() {
   }, []);
 
   return (
-    <div className="absolute pt-4 z-5 w-full flex items-center justify-center drop-shadow-lg">
-      <Menubar className="mt-6 bg-white max-w-full absolute z-5">
+    <div className="absolute z-5 w-full flex items-start justify-center-safe drop-shadow-lg min-h-24 px-4 overflow-y-hidden">
+      <Menubar className="mt-4 bg-white absolute z-7 overflow-x-auto max-w-full mx-4 overflow-y-hidden">
         <MenubarMenu>
-          <MenubarTrigger onClick={() => router.push("/")}>Home</MenubarTrigger>
+          <MenubarTrigger onClick={() => router.push("/")}>
+          <div className="flex flex-row items-center">
+            <LaughIcon className="mr-2" />
+            <p>FriendlyFace</p>
+          </div>
+          </MenubarTrigger>
         </MenubarMenu>
         <MenubarMenu>
           <MenubarTrigger onClick={() => router.push("/about")}>

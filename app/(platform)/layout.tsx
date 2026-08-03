@@ -3,6 +3,7 @@
 import NavBar from "@/components/NavBar";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
+
 const queryClient = new QueryClient();
 
 export default function Layout({
@@ -11,9 +12,9 @@ export default function Layout({
   children: React.ReactNode;
 }>) {
   return (
-    <div className="h-screen h-full w-screen flex flex-col z-0 relative overflow-hidden">
+    <div className="h-dvh w-screen flex flex-col z-0 relative overflow-hidden">
       <NavBar></NavBar>
-      <div className="flex flex-col w-screen min-h-screen overflow-y-auto overflow-x-hidden">
+      <div className="flex flex-col w-screen min-h-full overflow-y-auto overflow-x-hidden">
         <QueryClientProvider client={queryClient}>
           {children}
         </QueryClientProvider>

@@ -11,7 +11,7 @@ export default function Home() {
       <div className="flex flex-col w-full gap-4 max-w-md px-8">
         <div className="flex flex-col max-w-full gap-4">
           <div className="flex flex-row gap-4">
-            <h1 className="text-3xl font-heading">Welcome to Open Lunch</h1>
+            <h1 className="text-3xl font-heading">Welcome to FriendlyFace</h1>
           </div>
           <p>{"Making lunch what it should be, for everyone—the best period of the day."}</p>
           <Button
