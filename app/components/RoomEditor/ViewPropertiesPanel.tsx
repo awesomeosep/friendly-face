@@ -52,7 +52,7 @@ export default function PropertiesPanel({
         </Field>
       )}
       <Field label="Interests">
-        <p>{tableData?.interests ?? "No interests entered"}</p>
+        <p>{tableData?.interests || "---"}</p>
       </Field>
       <style jsx>{`
         :global(.input-field) {

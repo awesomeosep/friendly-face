@@ -1,4 +1,5 @@
 import { relations } from "drizzle-orm";
+import { boolean } from "drizzle-orm/pg-core";
 import { text, timestamp, time, uuid, jsonb, integer, pgTable } from "drizzle-orm/pg-core";
 
 export const adminTable = pgTable("admins", {
@@ -21,6 +22,7 @@ export const organizationTable = pgTable("organizations", {
     .$defaultFn(() => crypto.randomUUID())
     .notNull()
     .references(() => adminTable.id, { onDelete: "cascade" }),
+  is_hidden: boolean("is_hidden").notNull().$defaultFn(() => false),
 });
 
 export const periodTable = pgTable("periods", {

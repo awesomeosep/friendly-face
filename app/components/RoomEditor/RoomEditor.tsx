@@ -574,7 +574,7 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
                 cursor: pendingFixture ? "crosshair" : "default",
               }}
             >
-              <div className={`absolute right-3 top-3 mt-${isMobile ? '16' : '0'} z-20 flex items-center gap-2 rounded-full border px-2 py-1 backdrop-blur drop-shadow-lg`}>
+              <div className={`absolute right-3 top-3 mt-${isMobile && props.mode == "view" ? '16' : '0'} z-20 flex items-center gap-2 rounded-full border px-2 py-1 backdrop-blur drop-shadow-lg`}>
                 <button
                   type="button"
                   onClick={handleZoomOut}
@@ -602,7 +602,7 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
               </div>
 
               {pendingFixture && (
-                <div className="absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded-full border border-[#4a9eff] bg-[#0d2140] px-3 py-1.5 text-xs font-medium text-[#4a9eff] pointer-events-none">
+                <div className="absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded-full border backdrop-blur px-3 py-1.5 text-xs font-medium pointer-events-none">
                   Tap to place - drag to pan - pinch to zoom
                 </div>
               )}

@@ -34,8 +34,8 @@ export default function NavigationMenuDemo() {
   }, []);
 
   return (
-    <div className="absolute z-5 w-full flex items-start justify-center-safe drop-shadow-lg min-h-24 px-4 overflow-y-hidden">
-      <Menubar className="mt-4 bg-white absolute z-7 overflow-x-auto max-w-full mx-4 overflow-y-hidden">
+    <div className="pointer-events-none absolute z-5 w-full flex items-start justify-center-safe drop-shadow-lg min-h-24 px-4 overflow-y-hidden">
+      <Menubar className="pointer-events-auto mt-4 bg-white absolute z-7 overflow-x-auto max-w-full mx-4 overflow-y-hidden">
         <MenubarMenu>
           <MenubarTrigger onClick={() => router.push("/")}>
           <div className="flex flex-row items-center">

@@ -34,6 +34,7 @@ export const authed = base.use(async ({ context, next }) => {
 export const locationAdmin = os
   .$context<Context & { user: NonNullable<Context["user"]> }>()
   .middleware(async ({ context, next }, organization_id: number) => {
+    console.log("location admin check");
     const [location] = await context.db
       .select()
       .from(organizationTable)
@@ -45,31 +46,116 @@ export const locationAdmin = os
     return next({ context: { location } });
   });
 
-  export const roomInLocation = os
-  .$context<Context & { user: NonNullable<Context["user"]> }>()
-  .middleware(async ({ context, next }, data_input: { room_id: number; organization_id: number }) => {
-    const [room] = await context.db
+export const isLocationVisibleById = os
+  .$context<Context>()
+  .middleware(async ({ context, next }, organization_id: number) => {
+    console.log("location visible check");
+    const [location] = await context.db
       .select()
-      .from(roomTable)
-      .where(and(eq(roomTable.id, data_input.room_id), eq(roomTable.organization_id, data_input.organization_id)));
+      .from(organizationTable)
+      .where(eq(organizationTable.id, organization_id));
 
-    if (!room) throw new ORPCError("NOT_FOUND");
-
-    return next({ context: { room } });
+    if (!location) throw new ORPCError("NOT_FOUND");
+    if (location.is_hidden && location.admin_id !== context.user?.id)
+      throw new ORPCError("NOT_FOUND");
+    console.log("location: ", location);
+    return next({ context: { location } });
   });
 
-  export const periodInLocation = os
-  .$context<Context & { user: NonNullable<Context["user"]> }>()
-  .middleware(async ({ context, next }, data_input: { period_id: number; organization_id: number }) => {
-    const [period] = await context.db
+export const isLocationVisibleByCode = os
+  .$context<Context>()
+  .middleware(async ({ context, next }, organization_code: string) => {
+    console.log("location visible check");
+    const [location] = await context.db
       .select()
-      .from(periodTable)
-      .where(and(eq(periodTable.id, data_input.period_id), eq(periodTable.organization_id, data_input.organization_id)));
+      .from(organizationTable)
+      .where(eq(organizationTable.code, organization_code));
 
-    if (!period) throw new ORPCError("NOT_FOUND");
-
-    return next({ context: { period } });
+    if (!location) throw new ORPCError("NOT_FOUND");
+    if (location.is_hidden && location.admin_id !== context.user?.id)
+      throw new ORPCError("NOT_FOUND");
+    console.log("location: ", location);
+    return next({ context: { location } });
   });
+
+export const roomInLocation = os
+  .$context<Context & { user: NonNullable<Context["user"]> }>()
+  .middleware(
+    async (
+      { context, next },
+      data_input: { room_id: number; organization_id: number },
+    ) => {
+      console.log(
+        "room in location check",
+        data_input.room_id,
+        data_input.organization_id,
+      );
+      const [room] = await context.db
+        .select()
+        .from(roomTable)
+        .where(
+          and(
+            eq(roomTable.id, data_input.room_id),
+            eq(roomTable.organization_id, data_input.organization_id),
+          ),
+        );
+
+      if (!room) throw new ORPCError("NOT_FOUND");
+
+      return next({ context: { room } });
+    },
+  );
+
+export const periodInLocation = os
+  .$context<Context & { user: NonNullable<Context["user"]> }>()
+  .middleware(
+    async (
+      { context, next },
+      data_input: { period_id: number; organization_id: number },
+    ) => {
+      const [period] = await context.db
+        .select()
+        .from(periodTable)
+        .where(
+          and(
+            eq(periodTable.id, data_input.period_id),
+            eq(periodTable.organization_id, data_input.organization_id),
+          ),
+        );
+
+      if (!period) throw new ORPCError("NOT_FOUND");
+
+      return next({ context: { period } });
+    },
+  );
+
+export const roomLayoutInLocation = os
+  .$context<Context & { user: NonNullable<Context["user"]> }>()
+  .middleware(
+    async (
+      { context, next },
+      data_input: { room_layout_id: number; organization_id: number },
+    ) => {
+      console.log(
+        "room layout in location check",
+        data_input.room_layout_id,
+        data_input.organization_id,
+      );
+      const [roomLayout] = await context.db
+        .select()
+        .from(roomLayoutTable)
+        .where(
+          and(
+            eq(roomLayoutTable.id, data_input.room_layout_id),
+            eq(roomLayoutTable.organization_id, data_input.organization_id),
+          ),
+        );
+
+      if (!roomLayout) throw new ORPCError("NOT_FOUND");
+
+      return next({ context: { roomLayout } });
+    },
+  );
 
 const FindRoomLayoutInputSchema = z.object({
   org_id: z.string(),
@@ -80,6 +166,7 @@ const FindRoomLayoutInputSchema = z.object({
 export const orgRouter = {
   findByCode: base
     .input(OrgSchema.pick({ code: true }))
+    .use(isLocationVisibleByCode, (input) => input.code)
     .handler(async ({ input }) => {
       const org = await db.query.organizationTable.findFirst({
         where: eq(organizationTable.code, input.code),
@@ -93,6 +180,7 @@ export const orgRouter = {
     }),
   findById: base
     .input(OrgSchema.pick({ id: true }))
+    .use(isLocationVisibleById, (input) => input.id)
     .handler(async ({ input }) => {
       const org = await db.query.organizationTable.findFirst({
         where: eq(organizationTable.id, input.id),
@@ -205,7 +293,12 @@ export const orgRouter = {
           .set({
             label: input.label,
           })
-          .where(and(eq(roomTable.organization_id, input.organization_id), eq(roomTable.id, input.id)))
+          .where(
+            and(
+              eq(roomTable.organization_id, input.organization_id),
+              eq(roomTable.id, input.id),
+            ),
+          )
           .returning();
         return newRoom || null;
       } catch (error) {
@@ -220,7 +313,12 @@ export const orgRouter = {
       try {
         const deletedRoom = await db
           .delete(roomTable)
-          .where(and(eq(roomTable.organization_id, input.organization_id), eq(roomTable.id, input.id)))
+          .where(
+            and(
+              eq(roomTable.organization_id, input.organization_id),
+              eq(roomTable.id, input.id),
+            ),
+          )
           .returning();
         return deletedRoom || null;
       } catch (error) {
@@ -294,7 +392,12 @@ export const orgRouter = {
             start_time: input.start_time,
             end_time: input.end_time,
           })
-          .where(and(eq(periodTable.organization_id, input.organization_id), eq(periodTable.id, input.id)))
+          .where(
+            and(
+              eq(periodTable.organization_id, input.organization_id),
+              eq(periodTable.id, input.id),
+            ),
+          )
           .returning();
         return newPeriod || null;
       } catch (error) {
@@ -309,7 +412,12 @@ export const orgRouter = {
       try {
         const deletedPeriod = await db
           .delete(periodTable)
-          .where(and(eq(periodTable.organization_id, input.organization_id), eq(periodTable.id, input.id)))
+          .where(
+            and(
+              eq(periodTable.organization_id, input.organization_id),
+              eq(periodTable.id, input.id),
+            ),
+          )
           .returning();
         return deletedPeriod || null;
       } catch (error) {
@@ -327,8 +435,15 @@ export const orgRouter = {
       }),
     )
     .use(locationAdmin, (input) => input.organization_id)
-    .use(roomInLocation, (input) => {return {"room_id": input.room_id, "organization_id": input.organization_id}})
-    .use(periodInLocation, (input) => {return {"period_id": input.time_period_id, "organization_id": input.organization_id}})
+    .use(roomInLocation, (input) => {
+      return { room_id: input.room_id, organization_id: input.organization_id };
+    })
+    .use(periodInLocation, (input) => {
+      return {
+        period_id: input.time_period_id,
+        organization_id: input.organization_id,
+      };
+    })
     .handler(async ({ input }) => {
       try {
         const newRoomLayout = await db
@@ -363,10 +478,17 @@ export const orgRouter = {
       }),
     )
     .use(locationAdmin, (input) => input.organization_id)
-    .use(roomInLocation, (input) => ({"room_id": input.from_id, "organization_id": input.organization_id}))
-    .use(roomInLocation, (input) => ({"room_id": input.to_id, "organization_id": input.organization_id}))
+    .use(roomLayoutInLocation, (input) => ({
+      room_layout_id: input.from_id,
+      organization_id: input.organization_id,
+    }))
+    .use(roomLayoutInLocation, (input) => ({
+      room_layout_id: input.to_id,
+      organization_id: input.organization_id,
+    }))
     .handler(async ({ input }) => {
       try {
+        console.log("get fromlayout");
         const fromLayout = await db.query.roomLayoutTable.findFirst({
           where: eq(roomLayoutTable.id, input.from_id),
         });
@@ -382,7 +504,7 @@ export const orgRouter = {
           throw new Error("Destination layout not found.");
         }
         console.log("toLayout: ", toLayout);
-        const toLayoutParsed = LayoutDataSchema.parse(toLayout.layout_data);
+        // const toLayoutParsed = LayoutDataSchema.parse(toLayout.layout_data);
         const updatedValues = {
           layout_data: fromLayoutParsed,
           updated_at: new Date(),
@@ -413,7 +535,7 @@ export const orgRouter = {
         throw new Error("Failed to transfer layout. Please try again.");
       }
     }),
-  findRoomDataByRoomPeriod: os
+  findRoomDataByRoomPeriod: base
     .input(
       FindRoomLayoutInputSchema.pick({
         org_id: true,
@@ -421,6 +543,7 @@ export const orgRouter = {
         period_id: true,
       }),
     )
+    .use(isLocationVisibleById, (input) => Number(input.org_id))
     .handler(async ({ input }) => {
       const roomLayout = await db.query.roomLayoutTable.findFirst({
         where: and(
@@ -431,5 +554,24 @@ export const orgRouter = {
       });
       console.log("roomLayout: ", roomLayout);
       return roomLayout || null;
+    }),
+  updateOrgDetails: authed
+    .input(OrgSchema.pick({ id: true, name: true, is_hidden: true }))
+    .use(locationAdmin, (input) => input.id)
+    .handler(async ({ input }) => {
+      try {
+        const updatedOrg = await db
+          .update(organizationTable)
+          .set({
+            name: input.name,
+            is_hidden: input.is_hidden,
+          })
+          .where(eq(organizationTable.id, input.id))
+          .returning();
+        return updatedOrg || null;
+      } catch (error) {
+        console.error("Error updating organization: ", error);
+        throw new Error("Failed to update organization. Please try again.");
+      }
     }),
 };

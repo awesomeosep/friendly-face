@@ -16,6 +16,7 @@ import {
   ItemDescription,
   ItemTitle,
 } from "@/components/ui/item";
+import { Spinner } from "@/components/ui/spinner";
 
 type ParamsType = {
   org_id: string;
@@ -29,6 +30,8 @@ export default function ViewOrgPage() {
       staleTime: Infinity,
       cacheTime: Infinity,
       input: { id: orgId },
+      retry: 2,
+      refetchOnWindowFocus: false,
       onError: (error: ORPCError<string, unknown>) => {
         console.error("Error fetching organization:", error);
       },
@@ -37,6 +40,7 @@ export default function ViewOrgPage() {
 
   const [selectedRoom, setSelectedRoom] = useState<number | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState<number | null>(null);
+  const [loadingViewRoom, setLoadingViewRoom] = useState(false);
 
   return (
     <div className="flex flex-col w-screen max-w-screen items-center py-16 pt-24">
@@ -141,9 +145,10 @@ export default function ViewOrgPage() {
                   </div>
                 </div>
                 <Button
-                  disabled={!selectedRoom || !selectedPeriod}
-                  className="mt-6"
+                  disabled={!selectedRoom || !selectedPeriod || loadingViewRoom}
+                  className="mt-6 gap-2"
                   onClick={() => {
+                    setLoadingViewRoom(true);
                     if (selectedRoom && selectedPeriod) {
                       router.push(
                         `/location/${organization.id}/room/${selectedRoom}/period/${selectedPeriod}/view`,
@@ -151,6 +156,7 @@ export default function ViewOrgPage() {
                     }
                   }}
                 >
+                  {loadingViewRoom && <Spinner />}
                   View Room
                 </Button>
               </div>

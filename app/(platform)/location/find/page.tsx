@@ -5,9 +5,8 @@ import { Input } from "@/components/ui/input";
 import { client } from "@/lib/orpc";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ReloadIcon } from "@radix-ui/react-icons";
 import { Spinner } from "@/components/ui/spinner";
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { toast } from "sonner";
 
 export default function FindOrgPage() {
   const router = useRouter();
@@ -33,8 +32,10 @@ export default function FindOrgPage() {
         router.push(`/location/${orgId}/view`);
       }
     } catch (error) {
-      console.error("Error searching for location:", error);
-      alert("An error occurred while searching for the location.");
+      console.log("Error searching for location:", error);
+      toast.error("An error occurred while searching for the location.", {
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
     } finally {
       setSearchLoading(false);
     }

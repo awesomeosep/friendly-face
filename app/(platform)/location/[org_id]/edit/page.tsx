@@ -119,7 +119,7 @@ export default function ViewOrgPage() {
     const response = await orpc.org.updateRoomDetails.call({
       id: roomId,
       label: newRoomName,
-      organization_id: orgId
+      organization_id: orgId,
     });
     await refetch();
     console.log(response);
@@ -255,20 +255,26 @@ export default function ViewOrgPage() {
     toId: number | null,
     copyTableData: boolean,
   ) => {
-    setLoadingTransferLayout(true);
-    if (fromId === null || toId === null) {
+    try {
+      setLoadingTransferLayout(true);
+      if (fromId === null || toId === null) {
+        setLoadingTransferLayout(false);
+        return;
+      }
+      const response = await orpc.org.transferLayout.call({
+        from_id: fromId,
+        to_id: toId,
+        copy_table_data: copyTableData,
+        organization_id: orgId,
+      });
+      toast.success("Layout transferred.");
+      await refetch();
+    } catch (error) {
+      console.error("Error transferring layout:", error);
+      toast.error("Error transferring layout.");
+    } finally {
       setLoadingTransferLayout(false);
-      return;
     }
-    const response = await orpc.org.transferLayout.call({
-      from_id: fromId,
-      to_id: toId,
-      copy_table_data: copyTableData,
-      organization_id: orgId,
-    });
-    toast.success("Layout transferred.");
-    await refetch();
-    setLoadingTransferLayout(false);
   };
 
   return (
@@ -913,7 +919,12 @@ export default function ViewOrgPage() {
                                               )}
                                               Transfer
                                             </Button>
-                                            <Button variant="outline" onClick={() => setTransferDialogOpen(false)}>
+                                            <Button
+                                              variant="outline"
+                                              onClick={() =>
+                                                setTransferDialogOpen(false)
+                                              }
+                                            >
                                               Close
                                             </Button>
                                           </DialogFooter>
