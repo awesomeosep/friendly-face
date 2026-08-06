@@ -52,7 +52,7 @@ export default function FindOrgPage() {
           <Input
             id="location-search-code"
             type="text"
-            placeholder="Location code..."
+            placeholder="Location code"
             value={orgCode}
             onChange={handleInputChange}
           />

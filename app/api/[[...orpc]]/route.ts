@@ -1,14 +1,15 @@
 import { RPCHandler } from '@orpc/server/fetch'
 import { router } from '@/server/api/orpc'
 import { createORPCContext } from '@/server/context'
+import { NextRequest } from 'next/server'
 
 const handler = new RPCHandler(router)
 
-async function handleRequest(request: Request) {
+async function handleRequest(request: NextRequest) {
   try {
     const result = await handler.handle(request, {
       prefix: '/api',
-      context: await createORPCContext(),
+      context: await createORPCContext(request),
     })
 
     if (result.matched) {

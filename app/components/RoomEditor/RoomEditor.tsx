@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { ORPCError } from "@orpc/client";
 import { useParams } from "next/navigation";
+import { LayoutDataSchema } from "@/lib/schema";
 
 const GRID_SIZE = 20;
 const MIN_SCALE = 0.45;
@@ -39,8 +40,6 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
     height: number | null;
   }>({ width: null, height: null });
   const [viewport, setViewport] = useState({ scale: 1, x: 0, y: 0 });
-  // const [mode, setMode] = useState<"map" | "table" | "view">("map");
-  const [propertiesPanel, setPropertiesPanel] = useState<"map" | "data">("map");
   const [pendingFixture, setPendingFixture] = useState<FixtureType | null>(
     null,
   );
@@ -49,9 +48,11 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
     lastDistance: number;
   } | null>(null);
   const pinchFrameRef = useRef<number | null>(null);
-  const pinchViewportRef = useRef<{ scale: number; x: number; y: number } | null>(
-    null,
-  );
+  const pinchViewportRef = useRef<{
+    scale: number;
+    x: number;
+    y: number;
+  } | null>(null);
   const [loadingSave, setLoadingSave] = useState(false);
   const [containerElement, setContainerElement] = useState<HTMLElement | null>(
     null,
@@ -121,15 +122,41 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
   useEffect(() => {
     if (roomDataSuccess && !hasExecuted.current) {
       console.log("Query succeeded! Data:", roomData);
+
+      const parsedLayoutData = LayoutDataSchema.safeParse(
+        roomData?.layout_data,
+      );
       if (roomData) {
         const newRoomData: RoomData = {
           id: roomData.id,
           name: roomData.label,
-          occupancy: roomData.layout_data?.occupancy ?? 100,
-          canvasWidth: roomData.layout_data?.canvasWidth ?? 1000,
-          canvasHeight: roomData.layout_data?.canvasHeight ?? 700,
-          fixtures: roomData.layout_data?.fixtures ?? [],
-          tableData: roomData.layout_data?.tableData ?? [],
+          occupancy: parsedLayoutData.success
+            ? parsedLayoutData.data.occupancy
+            : 100,
+          canvasWidth: parsedLayoutData.success
+            ? parsedLayoutData.data.canvasWidth
+            : 1000,
+          canvasHeight: parsedLayoutData.success
+            ? parsedLayoutData.data.canvasHeight
+            : 700,
+          fixtures: parsedLayoutData.success
+            ? parsedLayoutData.data.fixtures.map((item) => {
+                const { meta, ...rest } = item;
+                return {
+                  ...rest,
+                  meta: meta ?? {},
+                };
+              })
+            : [],
+          tableData: parsedLayoutData.success
+            ? parsedLayoutData.data.tableData.map((item) => {
+                const { other, ...rest } = item;
+                return {
+                  ...rest,
+                  other: other ?? {},
+                };
+              })
+            : [],
           updatedAt:
             roomData.updated_at?.toISOString() ?? new Date().toISOString(),
         };
@@ -143,7 +170,9 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
     room.fixtures.find((f) => f.id === selectedId) ?? null;
   const selectedTableData =
     room.tableData.find((f) => f.id === selectedId) ?? null;
-  const [isMobile, setIsMobile] = useState<boolean>(stageSize.width ? stageSize.width < 900 : false);
+  const [isMobile, setIsMobile] = useState<boolean>(
+    stageSize.width ? stageSize.width < 900 : false,
+  );
 
   const clampScale = useCallback(
     (value: number) => Math.max(MIN_SCALE, Math.min(MAX_SCALE, value)),
@@ -194,18 +223,15 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
     const scale = clampScale(
       Math.min(availableWidth / canvasWidth, availableHeight / canvasHeight),
     );
-
-    setViewport({
-      scale,
-      x: (stageWidth - canvasWidth * scale) / 2,
-      y: (stageHeight - canvasHeight * scale) / 2,
-    });
-  }, [
-    clampScale,
-    getStageSize,
-    room.canvasHeight,
-    room.canvasWidth,
-  ]);
+    const setViewportFn = (scale: number, stageWidth: number, canvasWidth: number, stageHeight: number, canvasHeight: number) => {
+      setViewport({
+        scale,
+        x: (stageWidth - canvasWidth * scale) / 2,
+        y: (stageHeight - canvasHeight * scale) / 2,
+      });
+    };
+    setViewportFn(scale, stageWidth, canvasWidth, stageHeight, canvasHeight);
+  }, [clampScale, getStageSize, room.canvasHeight, room.canvasWidth]);
 
   const containerRef = useCallback((node: HTMLElement | null) => {
     const updateSize = (node: HTMLElement | null) => {
@@ -239,9 +265,12 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
       setStageSize({ width: el.clientWidth, height: el.clientHeight });
     });
     ro.observe(el);
-    setStageSize({ width: el.clientWidth, height: el.clientHeight });
+    const setSizeFn = (clientWidth: number, clientHeight: number) => {
+      setStageSize({ width: clientWidth, height: clientHeight });
+    };
+    setSizeFn(el.clientWidth, el.clientHeight);
     return () => ro.disconnect();
-  }, []);
+  }, [containerElement]);
 
   useEffect(() => {
     if ((stageSize.width ?? 0) <= 0 || (stageSize.height ?? 0) <= 0) return;
@@ -466,18 +495,12 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
 
   const handleZoomIn = () => {
     const { width, height } = getStageSize();
-    zoomToPoint(
-      { x: width / 2, y: height / 2 },
-      viewport.scale * 1.2,
-    );
+    zoomToPoint({ x: width / 2, y: height / 2 }, viewport.scale * 1.2);
   };
 
   const handleZoomOut = () => {
     const { width, height } = getStageSize();
-    zoomToPoint(
-      { x: width / 2, y: height / 2 },
-      viewport.scale / 1.2,
-    );
+    zoomToPoint({ x: width / 2, y: height / 2 }, viewport.scale / 1.2);
   };
 
   const handleToolbarAdd = (type: FixtureType) => {
@@ -574,7 +597,9 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
                 cursor: pendingFixture ? "crosshair" : "default",
               }}
             >
-              <div className={`absolute right-3 top-3 mt-${isMobile && props.mode == "view" ? '16' : '0'} z-20 flex items-center gap-2 rounded-full border px-2 py-1 backdrop-blur drop-shadow-lg`}>
+              <div
+                className={`absolute right-3 top-3 mt-${isMobile && props.mode == "view" ? "16" : "0"} z-20 flex items-center gap-2 rounded-full border px-2 py-1 backdrop-blur drop-shadow-lg`}
+              >
                 <button
                   type="button"
                   onClick={handleZoomOut}
@@ -640,7 +665,6 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
                         }
                         isEditable={props.mode === "edit"}
                         onSelect={() => {
-                          setPropertiesPanel("map");
                           selectFixture(fixture.id);
                         }}
                         onChange={(changes) =>

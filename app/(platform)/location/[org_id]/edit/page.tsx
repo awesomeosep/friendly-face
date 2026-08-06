@@ -439,13 +439,9 @@ export default function ViewOrgPage() {
                                 <div>
                                   <ItemTitle>{period.label}</ItemTitle>
                                   <ItemDescription>
-                                    {Temporal.PlainTime.from(
-                                      period.start_time,
-                                    ).toLocaleString()}{" "}
+                                    {period.start_time.split(":").slice(0, 2).join(":")}{" "}
                                     -{" "}
-                                    {Temporal.PlainTime.from(
-                                      period.end_time,
-                                    ).toLocaleString()}
+                                    {period.end_time.split(":").slice(0, 2).join(":")}
                                   </ItemDescription>
                                 </div>
                               )}

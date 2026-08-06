@@ -190,6 +190,7 @@ export const orgRouter = {
           room_layouts: true,
         },
       });
+      console.log(org)
       return org || null;
     }),
   findMany: authed.handler(async ({ context }) => {
