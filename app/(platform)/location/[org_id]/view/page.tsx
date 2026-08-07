@@ -111,7 +111,7 @@ export default function ViewOrgPage() {
                 <div className="mt-6 flex flex-col gap-2">
                   <p>Select a period:</p>
                   <div className="flex flex-col gap-4">
-                    {organization.periods.map((period) => (
+                    {organization.periods.sort((p1, p2) => p1.start_time.localeCompare(p2.start_time)).map((period) => (
                       <Item key={period.id} variant="outline">
                         <ItemActions>
                           <Checkbox
