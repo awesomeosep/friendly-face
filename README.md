@@ -14,6 +14,9 @@ To demo, use the location code "DEMO123" on the Find Location page. Then select 
 - See and select rooms and periods in an organization
 - View room layouts and lunch tables who are welcoming new people
 
+## AI Usage
+AI was used to build the initial version of the layout editor/viewer, which was then edited to meet the needs of the project. AI autocomplete was used for small sections of code.
+
 ## Development
 Run the development server:
 
