@@ -45,17 +45,19 @@ export default function OrgSettingsPage() {
   const [newOrgCode, setNewOrgCode] = useState("");
   const [isOrgHidden, setIsOrgHidden] = useState(false);
   const [loadingRenameOrg, setLoadingRenameOrg] = useState(false);
+  const [loadingUpdateOrgCode, setLoadingUpdateOrgCode] = useState(false);
   const [loadingToggleOrgVisibility, setLoadingToggleOrgVisibility] =
     useState(false);
   const [hasLoadedVariables, setHasLoadedVariables] = useState(false);
 
   const updateOrgName = async (newOrgName: string) => {
-    setLoadingRenameOrg(true);
+    setLoadingUpdateOrgCode(true);
     try {
       await orpc.org.updateOrgDetails.call({
         id: orgId,
         name: newOrgName,
         is_hidden: organization?.is_hidden ?? false,
+        code: organization?.code ?? "",
       });
       toast.success("Location updated successfully");
       refetch();
@@ -63,7 +65,26 @@ export default function OrgSettingsPage() {
       console.error("Error updating organization name:", error);
       toast.error("Failed to update location name");
     } finally {
-      setLoadingRenameOrg(false);
+      setLoadingUpdateOrgCode(false);
+    }
+  };
+
+  const updateOrgCode = async (newOrgCode: string) => {
+    setLoadingUpdateOrgCode(true);
+    try {
+      await orpc.org.updateOrgDetails.call({
+        id: orgId,
+        name: organization?.name ?? "",
+        is_hidden: organization?.is_hidden ?? false,
+        code: newOrgCode,
+      });
+      toast.success("Location updated successfully");
+      refetch();
+    } catch (error) {
+      console.error("Error updating organization code:", error);
+      toast.error("Failed to update location code");
+    } finally {
+      setLoadingUpdateOrgCode(false);
     }
   };
 
@@ -72,6 +93,7 @@ export default function OrgSettingsPage() {
       setNewOrgName(organization?.name ?? "");
       setIsOrgHidden(organization?.is_hidden ?? false);
       setHasLoadedVariables(true);
+      setNewOrgCode(organization?.code ?? "");
     };
     if (organization && !hasLoadedVariables) {
       update();
@@ -86,6 +108,7 @@ export default function OrgSettingsPage() {
           id: orgId,
           name: organization.name,
           is_hidden: isHidden,
+          code: organization.code,
         });
         toast.success("Location updated successfully");
         refetch();
@@ -117,7 +140,7 @@ export default function OrgSettingsPage() {
                   <CardHeader>
                     <CardTitle>Basic</CardTitle>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="flex flex-col gap-8">
                     <div className="flex flex-col gap-4">
                       <Field>
                         <FieldLabel>Location Name</FieldLabel>
@@ -138,6 +161,28 @@ export default function OrgSettingsPage() {
                       >
                         {loadingRenameOrg && <Spinner />}
                         Rename
+                      </Button>
+                    </div>
+                    <div className="flex flex-col gap-4">
+                      <Field>
+                        <FieldLabel>Location Code</FieldLabel>
+                        <Input
+                          type="text"
+                          value={newOrgCode}
+                          onChange={(e) => setNewOrgCode(e.target.value)}
+                        />
+                      </Field>
+                      <Button
+                        className="w-fit"
+                        disabled={
+                          loadingUpdateOrgCode ||
+                          newOrgCode.trim() === "" ||
+                          newOrgCode === organization.code
+                        }
+                        onClick={() => updateOrgCode(newOrgCode)}
+                      >
+                        {loadingUpdateOrgCode && <Spinner />}
+                        Update Code
                       </Button>
                     </div>
                   </CardContent>

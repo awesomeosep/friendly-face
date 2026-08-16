@@ -18,17 +18,40 @@ import { LaughIcon, SmileIcon, UserRound } from "lucide-react";
 
 export default function NavigationMenuDemo() {
   const router = useRouter();
-  const [loggedIn, setLoggedIn] = useState<boolean>(false);
+  const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
 
   useEffect(() => {
-    const authListener = supabaseClient.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_IN") {
-        setLoggedIn(true);
-      } else if (event === "SIGNED_OUT") {
-        setLoggedIn(false);
+    let isMounted = true;
+
+    const syncAuthState = async () => {
+      const {
+        data: { user },
+      } = await supabaseClient.auth.getUser();
+
+      if (isMounted) {
+        setLoggedIn(Boolean(user));
       }
-    });
+    };
+
+    void syncAuthState();
+
+    const authListener = supabaseClient.auth.onAuthStateChange(
+      (event, session) => {
+        if (!isMounted) {
+          return;
+        }
+
+        if (event === "SIGNED_OUT") {
+          setLoggedIn(false);
+          return;
+        }
+
+        setLoggedIn(Boolean(session?.user));
+      },
+    );
+
     return () => {
+      isMounted = false;
       authListener.data.subscription.unsubscribe();
     };
   }, []);
@@ -38,10 +61,10 @@ export default function NavigationMenuDemo() {
       <Menubar className="pointer-events-auto mt-4 bg-white absolute z-7 overflow-x-auto max-w-full mx-4 overflow-y-hidden">
         <MenubarMenu>
           <MenubarTrigger onClick={() => router.push("/")}>
-          <div className="flex flex-row items-center">
-            <LaughIcon className="mr-2" />
-            <p>FriendlyFace</p>
-          </div>
+            <div className="flex flex-row items-center">
+              <LaughIcon className="mr-2" />
+              <p>FriendlyFace</p>
+            </div>
           </MenubarTrigger>
         </MenubarMenu>
         <MenubarMenu>
@@ -54,7 +77,7 @@ export default function NavigationMenuDemo() {
             Find Location
           </MenubarTrigger>
         </MenubarMenu>
-        {loggedIn ? (
+        {loggedIn === null ? null : loggedIn ? (
           <MenubarMenu>
             <MenubarTrigger>
               <UserRound />
@@ -67,10 +90,12 @@ export default function NavigationMenuDemo() {
                 Account
               </MenubarItem>
               <MenubarSeparator />
-              <MenubarItem onClick={() => {
-                supabaseClient.auth.signOut();
-                router.push("/login");
-              }}>
+              <MenubarItem
+                onClick={() => {
+                  supabaseClient.auth.signOut();
+                  router.push("/login");
+                }}
+              >
                 Logout
               </MenubarItem>
             </MenubarContent>
