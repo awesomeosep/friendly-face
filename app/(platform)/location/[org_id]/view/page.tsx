@@ -52,84 +52,113 @@ export default function ViewOrgPage() {
                 <div className="flex flex-col gap-2">
                   <h1 className="text-3xl font-heading">{organization.name}</h1>
                   <p>Code: {organization.code}</p>
-                </div>
-                <div className="mt-4 flex flex-col gap-2">
-                  <p>Select a room:</p>
-                  <div className="flex flex-col gap-4">
-                    {organization.rooms.map((room) => (
-                      <Item key={room.id} variant="outline">
-                        <ItemActions>
-                          <Checkbox
-                            checked={selectedRoom == room.id}
-                            onCheckedChange={() => {
-                              setSelectedRoom(
-                                selectedRoom === room.id ? null : room.id,
-                              );
-                            }}
-                          ></Checkbox>
-                        </ItemActions>
-                        <ItemContent>
-                          <ItemTitle>{room.label}</ItemTitle>
-                        </ItemContent>
-                      </Item>
-                      // <Card key={room.id} className="py-4">
-                      //   <div className="flex flex-row gap-4 px-4 items-center">
-                      //     <Checkbox
-                      //       checked={selectedRoom == room.id}
-                      //       onCheckedChange={() => {
-                      //         setSelectedRoom(
-                      //           selectedRoom === room.id ? null : room.id,
-                      //         );
-                      //       }}
-                      //     />
-                      //     <span>{room.label}</span>
-                      //   </div>
-                      // </Card>
-                      // <div key={room.id} className="flex flex-col gap-2">
-                      //   <h2 className="text-xl text-rose-500 dark:text-rose-400 font-heading">
-                      //     Room: {room.label}
-                      //   </h2>
-                      //   <div className="flex flex-row gap-2">
-                      //     {organization.periods.map((period) => (
-                      //       <button
-                      //         key={period.id}
-                      //         className="bg-rose-500 hover:bg-rose-600 text-white font-bold py-1 px-2 rounded"
-                      //         onClick={() => {
-                      //           router.push(
-                      //             `/location/${organization.id}/view/room/${room.id}?periodId=${period.id}`,
-                      //           );
-                      //         }}
-                      //       >
-                      //         {period.label}
-                      //       </button>
-                      //     ))}
-                      //   </div>
-                      // </div>
-                    ))}
+                  {organization.custom_message_visible && (
+                  <div>
+                    <p>{organization.custom_message}</p>
                   </div>
+                )}
                 </div>
-                <div className="mt-6 flex flex-col gap-2">
-                  <p>Select a period:</p>
-                  <div className="flex flex-col gap-4">
-                    {organization.periods.sort((p1, p2) => p1.start_time.localeCompare(p2.start_time)).map((period) => (
-                      <Item key={period.id} variant="outline">
-                        <ItemActions>
-                          <Checkbox
-                            checked={selectedPeriod == period.id}
-                            onCheckedChange={() => {
-                              setSelectedPeriod(
-                                selectedPeriod === period.id ? null : period.id,
-                              );
-                            }}
-                          ></Checkbox>
-                        </ItemActions>
-                        <ItemContent>
-                          <ItemTitle>{period.label}</ItemTitle>
-                          <ItemDescription>{period.start_time.split(":").slice(0, 2).join(":")} - {period.end_time.split(":").slice(0, 2).join(":")}</ItemDescription>
-                        </ItemContent>
-                      </Item>
-                    ))}
-                    {/* <Card key={period.id} className="py-4">
+                {organization.layouts_disabled ? (
+                  !organization.custom_message_visible && (
+                    <div className="mt-2">
+                      <p>This location has disabled layout views.</p>
+                    </div>
+                  )
+                ) : (
+                  <div>
+                    <div className="mt-4 flex flex-col gap-2">
+                      <p>Select a room:</p>
+                      <div className="flex flex-col gap-4">
+                        {organization.rooms.map((room) => (
+                          <Item key={room.id} variant="outline">
+                            <ItemActions>
+                              <Checkbox
+                                checked={selectedRoom == room.id}
+                                onCheckedChange={() => {
+                                  setSelectedRoom(
+                                    selectedRoom === room.id ? null : room.id,
+                                  );
+                                }}
+                              ></Checkbox>
+                            </ItemActions>
+                            <ItemContent>
+                              <ItemTitle>{room.label}</ItemTitle>
+                            </ItemContent>
+                          </Item>
+                          // <Card key={room.id} className="py-4">
+                          //   <div className="flex flex-row gap-4 px-4 items-center">
+                          //     <Checkbox
+                          //       checked={selectedRoom == room.id}
+                          //       onCheckedChange={() => {
+                          //         setSelectedRoom(
+                          //           selectedRoom === room.id ? null : room.id,
+                          //         );
+                          //       }}
+                          //     />
+                          //     <span>{room.label}</span>
+                          //   </div>
+                          // </Card>
+                          // <div key={room.id} className="flex flex-col gap-2">
+                          //   <h2 className="text-xl text-rose-500 dark:text-rose-400 font-heading">
+                          //     Room: {room.label}
+                          //   </h2>
+                          //   <div className="flex flex-row gap-2">
+                          //     {organization.periods.map((period) => (
+                          //       <button
+                          //         key={period.id}
+                          //         className="bg-rose-500 hover:bg-rose-600 text-white font-bold py-1 px-2 rounded"
+                          //         onClick={() => {
+                          //           router.push(
+                          //             `/location/${organization.id}/view/room/${room.id}?periodId=${period.id}`,
+                          //           );
+                          //         }}
+                          //       >
+                          //         {period.label}
+                          //       </button>
+                          //     ))}
+                          //   </div>
+                          // </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="mt-6 flex flex-col gap-2">
+                      <p>Select a period:</p>
+                      <div className="flex flex-col gap-4">
+                        {organization.periods
+                          .sort((p1, p2) =>
+                            p1.start_time.localeCompare(p2.start_time),
+                          )
+                          .map((period) => (
+                            <Item key={period.id} variant="outline">
+                              <ItemActions>
+                                <Checkbox
+                                  checked={selectedPeriod == period.id}
+                                  onCheckedChange={() => {
+                                    setSelectedPeriod(
+                                      selectedPeriod === period.id
+                                        ? null
+                                        : period.id,
+                                    );
+                                  }}
+                                ></Checkbox>
+                              </ItemActions>
+                              <ItemContent>
+                                <ItemTitle>{period.label}</ItemTitle>
+                                <ItemDescription>
+                                  {period.start_time
+                                    .split(":")
+                                    .slice(0, 2)
+                                    .join(":")}{" "}
+                                  -{" "}
+                                  {period.end_time
+                                    .split(":")
+                                    .slice(0, 2)
+                                    .join(":")}
+                                </ItemDescription>
+                              </ItemContent>
+                            </Item>
+                          ))}
+                        {/* <Card key={period.id} className="py-4">
                         <div className="flex flex-row gap-4 px-4 items-center">
                           <Checkbox
                             checked={selectedPeriod == period.id}
@@ -142,23 +171,27 @@ export default function ViewOrgPage() {
                           <span>{period.label}</span>
                         </div>
                       </Card> */}
+                      </div>
+                    </div>
+                    <Button
+                      disabled={
+                        !selectedRoom || !selectedPeriod || loadingViewRoom
+                      }
+                      className="mt-6 gap-2"
+                      onClick={() => {
+                        setLoadingViewRoom(true);
+                        if (selectedRoom && selectedPeriod) {
+                          router.push(
+                            `/location/${organization.id}/room/${selectedRoom}/period/${selectedPeriod}/view`,
+                          );
+                        }
+                      }}
+                    >
+                      {loadingViewRoom && <Spinner />}
+                      View Room
+                    </Button>
                   </div>
-                </div>
-                <Button
-                  disabled={!selectedRoom || !selectedPeriod || loadingViewRoom}
-                  className="mt-6 gap-2"
-                  onClick={() => {
-                    setLoadingViewRoom(true);
-                    if (selectedRoom && selectedPeriod) {
-                      router.push(
-                        `/location/${organization.id}/room/${selectedRoom}/period/${selectedPeriod}/view`,
-                      );
-                    }
-                  }}
-                >
-                  {loadingViewRoom && <Spinner />}
-                  View Room
-                </Button>
+                )}
               </div>
             ) : (
               <p>Organization not found</p>

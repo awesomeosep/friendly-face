@@ -23,6 +23,9 @@ export const organizationTable = pgTable("organizations", {
     .notNull()
     .references(() => adminTable.id, { onDelete: "cascade" }),
   is_hidden: boolean("is_hidden").notNull().$defaultFn(() => false),
+  custom_message_visible: boolean("custom_message_visible"),
+  custom_message: text("custom_message"),
+  layouts_disabled: boolean("layouts_disabled")
 });
 
 export const periodTable = pgTable("periods", {

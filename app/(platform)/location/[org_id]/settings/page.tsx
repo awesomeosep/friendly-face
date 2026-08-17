@@ -16,7 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -49,6 +49,13 @@ export default function OrgSettingsPage() {
   const [loadingToggleOrgVisibility, setLoadingToggleOrgVisibility] =
     useState(false);
   const [hasLoadedVariables, setHasLoadedVariables] = useState(false);
+  const [showCustomMessage, setShowCustomMessage] = useState(false);
+  const [newCustomMessage, setNewCustomMessage] = useState("");
+  const [loadingCustomMessageUpdate, setLoadingCustomMessageUpdate] =
+    useState(false);
+  const [showLayoutSelection, setShowLayoutSelection] = useState(false);
+  const [loadingToggleLayoutVisibility, setLoadingToggleLayoutVisibility] =
+    useState(false);
 
   const updateOrgName = async (newOrgName: string) => {
     setLoadingUpdateOrgCode(true);
@@ -58,6 +65,9 @@ export default function OrgSettingsPage() {
         name: newOrgName,
         is_hidden: organization?.is_hidden ?? false,
         code: organization?.code ?? "",
+        layouts_disabled: organization?.layouts_disabled ?? false,
+        custom_message_visible: organization?.custom_message_visible ?? false,
+        custom_message: organization?.custom_message ?? "",
       });
       toast.success("Location updated successfully");
       refetch();
@@ -77,6 +87,9 @@ export default function OrgSettingsPage() {
         name: organization?.name ?? "",
         is_hidden: organization?.is_hidden ?? false,
         code: newOrgCode,
+        layouts_disabled: organization?.layouts_disabled ?? false,
+        custom_message_visible: organization?.custom_message_visible ?? false,
+        custom_message: organization?.custom_message ?? "",
       });
       toast.success("Location updated successfully");
       refetch();
@@ -88,12 +101,63 @@ export default function OrgSettingsPage() {
     }
   };
 
+  const updateCustomMessage = async (
+    newCustomMsgVisible: boolean,
+    newCustomMessage: string | null,
+  ) => {
+    setLoadingCustomMessageUpdate(true);
+    try {
+      await orpc.org.updateOrgDetails.call({
+        id: orgId,
+        name: organization?.name ?? "",
+        is_hidden: organization?.is_hidden ?? false,
+        code: organization?.code ?? "",
+        layouts_disabled: organization?.layouts_disabled ?? false,
+        custom_message_visible: newCustomMsgVisible,
+        custom_message: newCustomMessage ?? "",
+      });
+      toast.success("Location updated successfully");
+      refetch();
+    } catch (error) {
+      console.error("Error updating location custom message:", error);
+      toast.error("Failed to update location custom message");
+    } finally {
+      setLoadingCustomMessageUpdate(false);
+    }
+  };
+
+  const updateNewLayoutsVisible = async (newLayoutsVisible: boolean) => {
+    setLoadingToggleLayoutVisibility(true);
+    try {
+      console.log(newLayoutsVisible);
+      await orpc.org.updateOrgDetails.call({
+        id: orgId,
+        name: organization?.name ?? "",
+        is_hidden: organization?.is_hidden ?? false,
+        code: newOrgCode,
+        layouts_disabled: !newLayoutsVisible,
+        custom_message_visible: organization?.custom_message_visible ?? false,
+        custom_message: organization?.custom_message ?? "",
+      });
+      toast.success("Location updated successfully");
+      refetch();
+    } catch (error) {
+      console.error("Error updating location layout visibility:", error);
+      toast.error("Failed to update location layout visibility");
+    } finally {
+      setLoadingToggleLayoutVisibility(false);
+    }
+  };
+
   useEffect(() => {
     const update = () => {
       setNewOrgName(organization?.name ?? "");
       setIsOrgHidden(organization?.is_hidden ?? false);
       setHasLoadedVariables(true);
       setNewOrgCode(organization?.code ?? "");
+      setShowCustomMessage(organization?.custom_message_visible ?? false);
+      setShowLayoutSelection(!(organization?.layouts_disabled ?? false));
+      setNewCustomMessage(organization?.custom_message ?? "");
     };
     if (organization && !hasLoadedVariables) {
       update();
@@ -109,6 +173,9 @@ export default function OrgSettingsPage() {
           name: organization.name,
           is_hidden: isHidden,
           code: organization.code,
+          layouts_disabled: organization?.layouts_disabled ?? false,
+          custom_message_visible: organization?.custom_message_visible ?? false,
+          custom_message: organization?.custom_message ?? "",
         });
         toast.success("Location updated successfully");
         refetch();
@@ -131,12 +198,12 @@ export default function OrgSettingsPage() {
         <div className="flex flex-col max-w-full">
           {!orgLoading ? (
             organization ? (
-              <div>
+              <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-2 mb-4">
                   <h1 className="text-3xl font-heading">{organization.name}</h1>
                   <p>Code: {organization.code}</p>
                 </div>
-                <Card className="mt-8">
+                <Card>
                   <CardHeader>
                     <CardTitle>Basic</CardTitle>
                   </CardHeader>
@@ -188,11 +255,11 @@ export default function OrgSettingsPage() {
                   </CardContent>
                   <CardFooter></CardFooter>
                 </Card>
-                <Card className="mt-8">
+                <Card>
                   <CardHeader>
                     <CardTitle>Visibility</CardTitle>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="flex flex-col gap-8">
                     <div className="flex flex-col gap-4">
                       <Field orientation="horizontal">
                         <Checkbox
@@ -201,7 +268,7 @@ export default function OrgSettingsPage() {
                             setIsOrgHidden(!checked)
                           }
                         />
-                        <FieldLabel>Publicly visible</FieldLabel>
+                        <FieldLabel>Location publicly visible</FieldLabel>
                       </Field>
                       {isOrgHidden !== organization.is_hidden &&
                         (isOrgHidden ? (
@@ -223,21 +290,96 @@ export default function OrgSettingsPage() {
                             </AlertDescription>
                           </Alert>
                         ))}
+                      <Button
+                        className="w-fit"
+                        disabled={
+                          loadingToggleOrgVisibility ||
+                          isOrgHidden === organization.is_hidden
+                        }
+                        onClick={() => updateOrgVisibility(isOrgHidden)}
+                      >
+                        {loadingToggleOrgVisibility && <Spinner />}
+                        Update Location Visibility
+                      </Button>
+                    </div>
+                    <div className="gap-2 flex flex-col">
+                      <Field orientation="horizontal">
+                        <Checkbox
+                          checked={showLayoutSelection}
+                          onCheckedChange={(checked) =>
+                            setShowLayoutSelection(checked)
+                          }
+                        />
+                        <FieldLabel>Layout selection publicly visible</FieldLabel>
+                      </Field>
+                      <FieldDescription>
+                        When turned off, public users will see the location page
+                        but will not be able to access room layouts.
+                      </FieldDescription>
+                      <Button
+                        className="w-fit"
+                        disabled={
+                          loadingToggleLayoutVisibility ||
+                          showLayoutSelection == !organization.layouts_disabled
+                        }
+                        onClick={() =>
+                          updateNewLayoutsVisible(
+                            showLayoutSelection
+                          )
+                        }
+                      >
+                        {loadingToggleLayoutVisibility && <Spinner />}
+                        Update Layout Selection Visibility
+                      </Button>
                     </div>
                   </CardContent>
-                  <CardFooter>
-                    <Button
-                      className="w-fit"
-                      disabled={
-                        loadingToggleOrgVisibility ||
-                        isOrgHidden === organization.is_hidden
-                      }
-                      onClick={() => updateOrgVisibility(isOrgHidden)}
-                    >
-                      {loadingToggleOrgVisibility && <Spinner />}
-                      Save Changes
-                    </Button>
-                  </CardFooter>
+                  <CardFooter></CardFooter>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Custom message</CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-4">
+                      <Field orientation="horizontal">
+                        <Checkbox
+                          checked={showCustomMessage}
+                          onCheckedChange={(checked) =>
+                            setShowCustomMessage(checked)
+                          }
+                        />
+                        <FieldLabel>Show custom message</FieldLabel>
+                      </Field>
+                      {showCustomMessage && (
+                        <div>
+                          <Field>
+                            <FieldLabel>Custom message</FieldLabel>
+                            <Input
+                              type="text"
+                              value={newCustomMessage}
+                              onChange={(e) =>
+                                setNewCustomMessage(e.target.value)
+                              }
+                              disabled={!showCustomMessage}
+                            />
+                          </Field>
+                        </div>
+                      )}
+                      <Button
+                        className="w-fit"
+                        disabled={loadingCustomMessageUpdate || (showCustomMessage === organization.custom_message_visible && newCustomMessage === organization.custom_message)}
+                        onClick={() =>
+                          updateCustomMessage(
+                            showCustomMessage,
+                            newCustomMessage,
+                          )
+                        }
+                      >
+                        {loadingCustomMessageUpdate && <Spinner />}
+                        Update
+                      </Button>
+                    </div>
+                  </CardContent>
                 </Card>
               </div>
             ) : (

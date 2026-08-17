@@ -598,7 +598,7 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
               }}
             >
               <div
-                className={`absolute right-3 top-3 mt-${isMobile && props.mode == "view" ? "16" : "0"} z-20 flex items-center gap-2 rounded-full border px-2 py-1 backdrop-blur drop-shadow-lg`}
+                className={`absolute right-3 md:top-3 top-16 z-20 flex items-center gap-2 rounded-full border px-2 py-1 backdrop-blur drop-shadow-lg`}
               >
                 <button
                   type="button"
