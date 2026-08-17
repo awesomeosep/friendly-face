@@ -7,6 +7,9 @@ export const OrgSchema = z.object({
   created_at: z.date(),
   admin_id: z.uuid(),
   is_hidden: z.boolean(),
+  custom_message_visible: z.boolean(),
+  custom_message: z.string(),
+  layouts_disabled: z.boolean()
 });
 
 export const PeriodSchema = z.object({

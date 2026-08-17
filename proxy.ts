@@ -17,9 +17,12 @@ export async function proxy(request: NextRequest) {
     request.nextUrl.pathname.match(
       /^\/location\/(\d+)\/room\/(\d+)\/period\/(\d+)\/edit$/,
     );
+  const isProtectedLayoutRoute = request.nextUrl.pathname.match(
+    /^\/location\/(\d+)\/room\/(\d+)\/period\/(\d+)\/view$/,
+  );
   const locationMatch = request.nextUrl.pathname.match(/^\/location\/([^/]+)/);
 
-  if (isProtectedRoute) {
+  if (isProtectedRoute || isProtectedLayoutRoute) {
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_PROJECT_URL ?? "",
       process.env.SUPABASE_SECRET_KEY ?? "",
@@ -43,7 +46,7 @@ export async function proxy(request: NextRequest) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return NextResponse.redirect(new URL("/login", request.url));
+    if (!user && isProtectedRoute) return NextResponse.redirect(new URL("/login", request.url));
 
     // Only feasible if using an HTTP-compatible client (Supabase client, not Drizzle+pg)
     if (locationMatch) {
@@ -51,9 +54,18 @@ export async function proxy(request: NextRequest) {
         .select()
         .from(organizationTable)
         .where(eq(organizationTable.id, parseInt(locationMatch[1])))
-        .limit(1)
+        .limit(1);
 
-      if (!location || location.admin_id !== user.id) {
+      console.log("proxy location", location);
+      if (
+        (!location ||
+          location.is_hidden ||
+          (location.layouts_disabled &&
+            request.nextUrl.pathname.match(
+              /^\/location\/(\d+)\/room\/(\d+)\/period\/(\d+)\/view$/,
+            ))) &&
+        location.admin_id !== user?.id
+      ) {
         return NextResponse.redirect(new URL("/unauthorized", request.url));
       }
     }

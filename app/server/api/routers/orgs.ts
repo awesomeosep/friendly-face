@@ -557,7 +557,9 @@ export const orgRouter = {
       return roomLayout || null;
     }),
   updateOrgDetails: authed
-    .input(OrgSchema.pick({ id: true, name: true, is_hidden: true, code: true }))
+    .input(
+      OrgSchema.pick({ id: true, name: true, is_hidden: true, code: true, custom_message: true, custom_message_visible: true, layouts_disabled: true }),
+    )
     .use(locationAdmin, (input) => input.id)
     .handler(async ({ input }) => {
       try {
@@ -567,6 +569,31 @@ export const orgRouter = {
             name: input.name,
             is_hidden: input.is_hidden,
             code: input.code,
+            custom_message: input.custom_message,
+            custom_message_visible: input.custom_message_visible,
+            layouts_disabled: input.layouts_disabled
+          })
+          .where(eq(organizationTable.id, input.id))
+          .returning();
+        return updatedOrg || null;
+      } catch (error) {
+        console.error("Error updating organization: ", error);
+        throw new Error("Failed to update organization. Please try again.");
+      }
+    }),
+  updateOrgCustomMsg: authed
+    .input(
+      OrgSchema.pick({ id: true, layouts_disabled: true, custom_message: true, custom_message_visible: true }),
+    )
+    .use(locationAdmin, (input) => input.id)
+    .handler(async ({ input }) => {
+      try {
+        const updatedOrg = await db
+          .update(organizationTable)
+          .set({
+            layouts_disabled: input.layouts_disabled,
+            custom_message: input.custom_message,
+            custom_message_visible: input.custom_message_visible,
           })
           .where(eq(organizationTable.id, input.id))
           .returning();
