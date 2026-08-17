@@ -12,7 +12,7 @@ export async function createORPCContext(request: NextRequest) {
 
     const supabaseAuth = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_PROJECT_URL ?? "",
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "",
+      process.env.SUPABASE_SECRET_KEY ?? "",
       {
         cookies: {
           getAll() {

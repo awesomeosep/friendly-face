@@ -1,3 +1,7 @@
+import { db } from "@/server/db";
+
+import { eq } from "drizzle-orm";
+import { organizationTable } from "@/server/db/schema";
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -18,7 +22,7 @@ export async function proxy(request: NextRequest) {
   if (isProtectedRoute) {
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_PROJECT_URL ?? "",
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "",
+      process.env.SUPABASE_SECRET_KEY ?? "",
       {
         cookies: {
           getAll() {
@@ -43,11 +47,11 @@ export async function proxy(request: NextRequest) {
 
     // Only feasible if using an HTTP-compatible client (Supabase client, not Drizzle+pg)
     if (locationMatch) {
-      const { data: location } = await supabase
-        .from("organizations")
-        .select("admin_id")
-        .eq("id", parseInt(locationMatch[1]))
-        .single();
+      const [location] = await db
+        .select()
+        .from(organizationTable)
+        .where(eq(organizationTable.id, parseInt(locationMatch[1])))
+        .limit(1)
 
       if (!location || location.admin_id !== user.id) {
         return NextResponse.redirect(new URL("/unauthorized", request.url));
