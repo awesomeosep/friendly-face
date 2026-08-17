@@ -78,3 +78,24 @@ export const RoomLayoutSchema = z.object({
   updated_at: z.date(),
 });
 
+export const AdminOrgLinkSchema = z.object({
+  id: z.number().int(),
+  admin_id: z.uuid(),
+  organization_id: z.number().int(),
+  admin_role: z.string(),
+  created_at: z.date(),
+});
+
+export const RoomLayoutDraftSchema = z.object({
+  id: z.number().int(),
+  organization_id: z.number().int(),
+  time_period_id: z.number().int(),
+  room_id: z.number().int(),
+  label: z.string(),
+  layout_data: LayoutDataSchema,
+  created_at: z.date(),
+  updated_at: z.date().optional(),
+  approved_at: z.date().optional(),
+  submitter_admin_id: z.uuid(),
+  approver_admin_id: z.uuid().optional(),
+});

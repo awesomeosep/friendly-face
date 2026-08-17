@@ -54,7 +54,7 @@ export default function AccountPage() {
       id: response?.id || "",
       email: response?.email || "",
       name: response?.name || "",
-      created_at: response?.createdAt || new Date(),
+      created_at: response?.created_at || new Date(),
     };
     setNewUserName(editedRepsonse.name);
     setUserData(editedRepsonse);

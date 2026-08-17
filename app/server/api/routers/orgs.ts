@@ -5,16 +5,19 @@ import {
   LayoutDataSchema,
   OrgSchema,
   PeriodSchema,
+  RoomLayoutDraftSchema,
   RoomLayoutSchema,
   RoomSchema,
 } from "@/lib/schema";
 import {
+  adminOrgLinkTable,
+  draftRoomLayoutTable,
   organizationTable,
   periodTable,
   roomLayoutTable,
   roomTable,
 } from "@/server/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { z } from "zod";
 
 export const base = os.$context<Context>();
@@ -31,19 +34,86 @@ export const authed = base.use(async ({ context, next }) => {
   });
 });
 
-export const locationAdmin = os
+export const locationApprover = os
   .$context<Context & { user: NonNullable<Context["user"]> }>()
   .middleware(async ({ context, next }, organization_id: number) => {
     // console.log("location admin check");
     const [location] = await context.db
       .select()
-      .from(organizationTable)
-      .where(eq(organizationTable.id, organization_id));
+      .from(adminOrgLinkTable)
+      .where(
+        and(
+          and(
+            eq(adminOrgLinkTable.organization_id, organization_id),
+            eq(adminOrgLinkTable.admin_id, context.user.id),
+          ),
+          or(eq(adminOrgLinkTable.admin_role, "super_admin")),
+        ),
+      );
 
     if (!location) throw new ORPCError("NOT_FOUND");
     if (location.admin_id !== context.user.id) throw new ORPCError("FORBIDDEN");
 
     return next({ context: { location } });
+  });
+
+export const locationEditor = os
+  .$context<Context & { user: NonNullable<Context["user"]> }>()
+  .middleware(async ({ context, next }, organization_id: number) => {
+    // console.log("location admin check");
+    const [location] = await context.db
+      .select()
+      .from(adminOrgLinkTable)
+      .where(
+        and(
+          and(
+            eq(adminOrgLinkTable.organization_id, organization_id),
+            eq(adminOrgLinkTable.admin_id, context.user.id),
+          ),
+          or(
+            eq(adminOrgLinkTable.admin_role, "admin"),
+            eq(adminOrgLinkTable.admin_role, "super_admin"),
+          ),
+        ),
+      );
+
+    if (!location) throw new ORPCError("NOT_FOUND");
+    if (location.admin_id !== context.user.id) throw new ORPCError("FORBIDDEN");
+
+    return next({ context: { location } });
+  });
+
+export const draftCreatorOrSuper = os
+  .$context<Context & { user: NonNullable<Context["user"]> }>()
+  .middleware(async ({ context, next }, draft_layout_id: number) => {
+    // console.log("location admin check");
+    const [layout] = await context.db
+      .select({
+        draftRoomLayout: draftRoomLayoutTable,
+        adminOrgLink: adminOrgLinkTable,
+      })
+      .from(draftRoomLayoutTable)
+      .leftJoin(
+        adminOrgLinkTable,
+        eq(
+          draftRoomLayoutTable.organization_id,
+          adminOrgLinkTable.organization_id,
+        ),
+      )
+      .where(
+        and(
+          eq(draftRoomLayoutTable.id, draft_layout_id),
+          or(
+            eq(draftRoomLayoutTable.submitter_admin_id, context.user.id),
+            eq(adminOrgLinkTable.admin_role, "super_admin"),
+          ),
+        ),
+      );
+
+    if (!layout) throw new ORPCError("NOT_FOUND");
+    // if (layout. !== context.user.id) throw new ORPCError("FORBIDDEN");
+
+    return next({ context: { layout } });
   });
 
 export const isLocationVisibleById = os
@@ -161,6 +231,7 @@ const FindRoomLayoutInputSchema = z.object({
   org_id: z.string(),
   room_id: z.string(),
   period_id: z.string(),
+  version_id: z.string(),
 });
 
 export const orgRouter = {
@@ -209,6 +280,77 @@ export const orgRouter = {
     // console.log("orgs: ", orgs);
     return orgs || [];
   }),
+  updateDraftRoomLayout: authed
+    .input(
+      RoomLayoutDraftSchema.pick({
+        id: true,
+        label: true,
+        layout_data: true,
+        organization_id: true,
+      }).extend({
+        layout_data: z.string().optional(),
+      }),
+    )
+    .use(locationEditor, (input) => input.organization_id)
+    .use(draftCreatorOrSuper, (input) => input.id)
+    .handler(async ({ input }) => {
+      // console.log(input.layout_data);
+      try {
+        const updatedInput = {
+          id: input.id,
+          label: input.label,
+          layout_data: JSON.parse(input.layout_data?.toString() || "{}"),
+          updated_at: new Date(),
+        };
+        // console.log("updatedInput: ", updatedInput);
+        const roomLayout = await db
+          .update(roomLayoutTable)
+          .set(updatedInput)
+          .where(
+            and(
+              eq(roomLayoutTable.organization_id, input.organization_id),
+              eq(roomLayoutTable.id, input.id),
+            ),
+          )
+          .returning();
+        return roomLayout || null;
+      } catch (error) {
+        console.error("Error updating room layout: ", error);
+        throw new Error("Failed to update room layout. Please try again.");
+      }
+    }),
+  approveDraftLayout: authed
+    .input(
+      RoomLayoutDraftSchema.pick({
+        id: true,
+        organization_id: true,
+      }),
+    )
+    .use(locationApprover, (input) => input.organization_id)
+    .handler(async ({ input }) => {
+      try {
+        const updatedInput = {
+          id: input.id,
+          organization_id: input.organization_id,
+          approved: true,
+          updated_at: new Date(),
+        };
+        const roomLayout = await db
+          .update(roomLayoutTable)
+          .set(updatedInput)
+          .where(
+            and(
+              eq(roomLayoutTable.organization_id, input.organization_id),
+              eq(roomLayoutTable.id, input.id),
+            ),
+          )
+          .returning();
+        return roomLayout || null;
+      } catch (error) {
+        console.error("Error approving room layout: ", error);
+        throw new Error("Failed to approve room layout. Please try again.");
+      }
+    }),
   updateRoomLayout: authed
     .input(
       RoomLayoutSchema.pick({
@@ -220,7 +362,7 @@ export const orgRouter = {
         layout_data: z.string().optional(),
       }),
     )
-    .use(locationAdmin, (input) => input.organization_id)
+    .use(locationApprover, (input) => input.organization_id)
     .handler(async ({ input }) => {
       // console.log(input.layout_data);
       try {
@@ -249,7 +391,7 @@ export const orgRouter = {
     }),
   addRoom: authed
     .input(RoomSchema.pick({ organization_id: true, label: true }))
-    .use(locationAdmin, (input) => input.organization_id)
+    .use(locationEditor, (input) => input.organization_id)
     .handler(async ({ input }) => {
       try {
         const newRoom = await db
@@ -286,7 +428,7 @@ export const orgRouter = {
     }),
   updateRoomDetails: authed
     .input(RoomSchema.pick({ organization_id: true, id: true, label: true }))
-    .use(locationAdmin, (input) => input.organization_id)
+    .use(locationApprover, (input) => input.organization_id)
     .handler(async ({ input }) => {
       try {
         const newRoom = await db
@@ -309,7 +451,7 @@ export const orgRouter = {
     }),
   deleteRoom: authed
     .input(RoomSchema.pick({ organization_id: true, id: true }))
-    .use(locationAdmin, (input) => input.organization_id)
+    .use(locationEditor, (input) => input.organization_id)
     .handler(async ({ input }) => {
       try {
         const deletedRoom = await db
@@ -336,7 +478,7 @@ export const orgRouter = {
         end_time: true,
       }),
     )
-    .use(locationAdmin, (input) => input.organization_id)
+    .use(locationEditor, (input) => input.organization_id)
     .handler(async ({ input }) => {
       try {
         const newPeriod = await db
@@ -383,7 +525,7 @@ export const orgRouter = {
         organization_id: true,
       }),
     )
-    .use(locationAdmin, (input) => input.organization_id)
+    .use(locationEditor, (input) => input.organization_id)
     .handler(async ({ input }) => {
       try {
         const newPeriod = await db
@@ -408,7 +550,7 @@ export const orgRouter = {
     }),
   deletePeriod: authed
     .input(PeriodSchema.pick({ id: true, organization_id: true }))
-    .use(locationAdmin, (input) => input.organization_id)
+    .use(locationEditor, (input) => input.organization_id)
     .handler(async ({ input }) => {
       try {
         const deletedPeriod = await db
@@ -435,7 +577,7 @@ export const orgRouter = {
         label: true,
       }),
     )
-    .use(locationAdmin, (input) => input.organization_id)
+    .use(locationEditor, (input) => input.organization_id)
     .use(roomInLocation, (input) => {
       return { room_id: input.room_id, organization_id: input.organization_id };
     })
@@ -478,7 +620,7 @@ export const orgRouter = {
         organization_id: z.number().int(),
       }),
     )
-    .use(locationAdmin, (input) => input.organization_id)
+    .use(locationApprover, (input) => input.organization_id)
     .use(roomLayoutInLocation, (input) => ({
       room_layout_id: input.from_id,
       organization_id: input.organization_id,
@@ -536,29 +678,44 @@ export const orgRouter = {
         throw new Error("Failed to transfer layout. Please try again.");
       }
     }),
-  findRoomDataByRoomPeriod: base
+  findRoomDataByRoomPeriodVersion: base
     .input(
       FindRoomLayoutInputSchema.pick({
         org_id: true,
         room_id: true,
         period_id: true,
+        version_id: true,
       }),
     )
     .use(isLocationVisibleById, (input) => Number(input.org_id))
     .handler(async ({ input }) => {
-      const roomLayout = await db.query.roomLayoutTable.findFirst({
-        where: and(
-          eq(roomLayoutTable.organization_id, Number(input.org_id)),
-          eq(roomLayoutTable.room_id, Number(input.room_id)),
-          eq(roomLayoutTable.time_period_id, Number(input.period_id)),
-        ),
-      });
+      let roomLayout;
+      if (input.version_id == "current") {
+        roomLayout = await db.query.roomLayoutTable.findFirst({
+          where: and(
+            eq(roomLayoutTable.organization_id, Number(input.org_id)),
+            eq(roomLayoutTable.room_id, Number(input.room_id)),
+            eq(roomLayoutTable.time_period_id, Number(input.period_id)),
+          ),
+        });
+      } else {
+        roomLayout = await db.query.draftRoomLayoutTable.findFirst({
+          where: and(
+            eq(draftRoomLayoutTable.organization_id, Number(input.org_id)),
+            eq(draftRoomLayoutTable.room_id, Number(input.room_id)),
+            eq(draftRoomLayoutTable.time_period_id, Number(input.period_id)),
+            eq(draftRoomLayoutTable.id, Number(input.version_id)),
+          ),
+        });
+      }
       // console.log("roomLayout: ", roomLayout);
       return roomLayout || null;
     }),
   updateOrgDetails: authed
-    .input(OrgSchema.pick({ id: true, name: true, is_hidden: true, code: true }))
-    .use(locationAdmin, (input) => input.id)
+    .input(
+      OrgSchema.pick({ id: true, name: true, is_hidden: true, code: true }),
+    )
+    .use(locationApprover, (input) => input.id)
     .handler(async ({ input }) => {
       try {
         const updatedOrg = await db

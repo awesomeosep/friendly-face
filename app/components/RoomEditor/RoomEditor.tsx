@@ -24,6 +24,7 @@ type ParamsType = {
   org_id: string;
   room_id: string;
   period_id: string;
+  version_id?: string;
 };
 
 Konva.hitOnDragEnabled = true;
@@ -32,6 +33,7 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
   const orgId = parseInt(useParams<ParamsType>().org_id);
   const roomId = parseInt(useParams<ParamsType>().room_id);
   const periodId = parseInt(useParams<ParamsType>().period_id);
+  const versionId = useParams<ParamsType>().version_id;
 
   const stageRef = useRef<Konva.Stage>(null);
   // const containerRef = useRef<HTMLDivElement>(null);
@@ -103,13 +105,19 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
     data: roomData,
     isSuccess: roomDataSuccess,
   } = useQuery(
-    orpc.org.findRoomDataByRoomPeriod.queryOptions({
+    orpc.org.findRoomDataByRoomPeriodVersion.queryOptions({
       staleTime: Infinity,
       cacheTime: Infinity,
       input: {
         org_id: orgId.toString(),
         room_id: roomId.toString(),
         period_id: periodId.toString(),
+        version_id:
+          props.mode === "view"
+            ? "current"
+            : versionId && parseInt(versionId) >= 0
+              ? versionId.toString()
+              : "current",
       },
       onError: (error: ORPCError<string, unknown>) => {
         console.error("Error fetching organization:", error);
@@ -223,7 +231,13 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
     const scale = clampScale(
       Math.min(availableWidth / canvasWidth, availableHeight / canvasHeight),
     );
-    const setViewportFn = (scale: number, stageWidth: number, canvasWidth: number, stageHeight: number, canvasHeight: number) => {
+    const setViewportFn = (
+      scale: number,
+      stageWidth: number,
+      canvasWidth: number,
+      stageHeight: number,
+      canvasHeight: number,
+    ) => {
       setViewport({
         scale,
         x: (stageWidth - canvasWidth * scale) / 2,
