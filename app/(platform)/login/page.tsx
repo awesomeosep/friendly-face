@@ -8,6 +8,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Spinner } from "@/components/ui/spinner";
+import posthog from "posthog-js";
 
 export default function LoginPage() {
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -30,6 +31,7 @@ export default function LoginPage() {
         });
       } else {
         toast.success("Login successful");
+        posthog.identify(response.data.user?.id || "unknown_logged_in_user");
         router.push("/dashboard");
       }
     } catch (error) {
