@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/menubar";
 import { supabaseClient } from "@/lib/auth-client";
 import { LaughIcon, SmileIcon, UserRound } from "lucide-react";
+import posthog from "posthog-js";
 
 export default function NavigationMenuDemo() {
   const router = useRouter();
@@ -93,6 +94,7 @@ export default function NavigationMenuDemo() {
               <MenubarItem
                 onClick={() => {
                   supabaseClient.auth.signOut();
+                  posthog.reset();
                   router.push("/login");
                 }}
               >
