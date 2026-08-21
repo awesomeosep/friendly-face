@@ -94,6 +94,7 @@ export async function proxy(request: NextRequest) {
             ))) &&
         locationRoles.filter((item) => item.admin_id === user?.id).length === 0
       ) {
+        console.log("hello1");
         return NextResponse.redirect(new URL("/unauthorized", request.url));
       }
 
@@ -104,6 +105,7 @@ export async function proxy(request: NextRequest) {
           .where(
             and(
               eq(roomLayoutTable.organization_id, parseInt(locationMatch[1])),
+              eq(roomLayoutTable.id, parseInt(isProtectedViewRoute[2])),
               isNotNull(roomLayoutTable.approved_at),
             ),
           );
@@ -117,6 +119,7 @@ export async function proxy(request: NextRequest) {
           !mostRecentApprovedLayout ||
           isProtectedViewRoute[2] !== mostRecentApprovedLayout.id.toString()
         ) {
+          console.log("hello2");
           return NextResponse.redirect(new URL("/unauthorized", request.url));
         }
       }

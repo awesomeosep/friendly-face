@@ -144,9 +144,13 @@ export const roomLayoutRelations = relations(roomLayoutTable, ({ one }) => ({
     fields: [roomLayoutTable.room_id],
     references: [roomTable.id],
   }),
-  admin: one(adminTable, {
-    fields: [roomLayoutTable.updated_by, roomLayoutTable.approved_by],
-    references: [adminTable.id, adminTable.id],
+  updated_by_admin: one(adminTable, {
+    fields: [roomLayoutTable.updated_by],
+    references: [adminTable.id],
+  }),
+  approved_by_admin: one(adminTable, {
+    fields: [roomLayoutTable.approved_by],
+    references: [adminTable.id],
   }),
 }));
 

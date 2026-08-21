@@ -822,23 +822,39 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
           </div>
 
           {/* Status bar */}
-          {props.mode == "edit" && (
-            <div className="h-6  border-t  flex items-center px-4 gap-4">
-              <span className="text-[10px] text-[#3a4a60]">
-                {room.fixtures.length} fixture
-                {room.fixtures.length !== 1 ? "s" : ""}
-              </span>
-              {selectedFixture && (
-                <span className="text-[10px] text-[#4a9eff]">
-                  {selectedFixture.type} x{Math.round(selectedFixture.x)} y
-                  {Math.round(selectedFixture.y)}
+          <div className="h-6  border-t  flex items-center px-4 gap-4">
+            {props.mode === "edit" ? (
+              <>
+                <span className="text-[10px] text-[#3a4a60]">
+                  {room.fixtures.length} fixture
+                  {room.fixtures.length !== 1 ? "s" : ""}
                 </span>
-              )}
-              <span className="ml-auto text-[10px] text-[#2a3545]">
-                Last saved: {new Date(room.updatedAt).toLocaleTimeString()}
-              </span>
-            </div>
-          )}
+                {selectedFixture && (
+                  <span className="text-[10px] text-[#4a9eff]">
+                    {selectedFixture.type} x{Math.round(selectedFixture.x)} y
+                    {Math.round(selectedFixture.y)}
+                  </span>
+                )}
+                <span className="ml-auto text-[10px] text-[#2a3545]">
+                  Last saved: {new Date(room.updatedAt).toLocaleTimeString()}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="ml-auto text-[10px] text-[#2a3545]">
+                  Last {room.approvedAt ? "approved" : "updated"}:{" "}
+                  {new Date(
+                    room.approvedAt ?? room.updatedAt,
+                  ).toLocaleString()}{" "}
+                  by{" "}
+                  {room.approvedAt
+                    ? (roomData.approved_by_admin?.name ?? roomData.approved_by)
+                    : (roomData.updated_by_admin?.name ??
+                      roomData.updated_by)}
+                </span>
+              </>
+            )}
+          </div>
 
           {/* Esc cancels placement */}
           {pendingFixture && (

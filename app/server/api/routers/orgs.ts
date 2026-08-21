@@ -794,6 +794,10 @@ export const orgRouter = {
           eq(roomLayoutTable.organization_id, Number(input.organization_id)),
           eq(roomLayoutTable.id, Number(input.id)),
         ),
+        with: {
+          updated_by_admin: true,
+          approved_by_admin: true,
+        }
       });
       if (roomLayout) {
         if (roomLayout.approved_at) {
