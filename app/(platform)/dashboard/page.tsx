@@ -77,7 +77,7 @@ export default function DashboardPage() {
                       <Item key={org.id} variant="outline">
                         <ItemContent>
                           <ItemTitle>{org.org.name}</ItemTitle>
-                          <ItemDescription>Role: {org.role ? "Editing and Approval" : "Editing"}</ItemDescription>
+                          <ItemDescription>Role: {org.role === "approval" ? "Editing and Approval" : "Editing"}</ItemDescription>
                         </ItemContent>
                         <ItemActions>
                           <Button

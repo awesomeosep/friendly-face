@@ -268,7 +268,7 @@ export const orgRouter = {
         room_layouts: true,
       },
     });
-    // console.log("orgs: ", orgs);
+    console.log("orgs: ", orgs);
     return orgs || [];
   }),
   updateLayoutLabel: authed
