@@ -220,17 +220,22 @@ export const orgRouter = {
     .input(OrgSchema.pick({ code: true }))
     .use(isLocationVisibleByCode, (input) => input.code)
     .handler(async ({ input }) => {
-      console.log(input.code);
-      const org = await db.query.organizationTable.findFirst({
-        where: eq(organizationTable.code, input.code),
-        with: {
-          rooms: true,
-          periods: true,
-          room_layouts: true,
-        },
-      });
-      console.log(org);
-      return org || null;
+      try {
+        console.log(input.code);
+        const org = await db.query.organizationTable.findFirst({
+          where: eq(organizationTable.code, input.code),
+          with: {
+            rooms: true,
+            periods: true,
+            room_layouts: true,
+          },
+        });
+        console.log(org);
+        return org || null;
+      } catch (error) {
+        console.error("Error fetching organization by code: ", error);
+        throw new Error("Error finding for organization.");
+      }
     }),
   findById: base
     .input(OrgSchema.pick({ id: true }))
@@ -704,7 +709,7 @@ export const orgRouter = {
             updated_at: new Date(),
             approved_by: userRole?.role === "approver" ? context.user.id : null,
             approved_at: userRole?.role === "approver" ? new Date() : null,
-            approved_by_ip: userRole?.role === "approver" ? clientIp : null
+            approved_by_ip: userRole?.role === "approver" ? clientIp : null,
           })
           .returning();
         return newRoomLayout || null;
@@ -797,7 +802,7 @@ export const orgRouter = {
         with: {
           updated_by_admin: true,
           approved_by_admin: true,
-        }
+        },
       });
       if (roomLayout) {
         if (roomLayout.approved_at) {
