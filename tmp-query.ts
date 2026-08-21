@@ -1,6 +1,6 @@
 import 'dotenv/config';
-import { db } from './app/server/db/index.ts';
-import { organizationTable } from './app/server/db/schema.ts';
+import { db } from './app/server/db/index';
+import { organizationTable } from './app/server/db/schema';
 import { eq } from 'drizzle-orm';
 
 const org = await db.query.organizationTable.findFirst({
