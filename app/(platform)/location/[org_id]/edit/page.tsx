@@ -28,6 +28,8 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import {
   AlertCircleIcon,
   ExternalLinkIcon,
+  EyeIcon,
+  FilePenIcon,
   ForwardIcon,
   PencilIcon,
   PlusIcon,
@@ -55,6 +57,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 
 type ParamsType = {
   org_id: string;
@@ -80,6 +83,12 @@ export default function ViewOrgPage() {
   const [newPeriodStartTime, setNewPeriodStartTime] = useState("");
   const [newPeriodEndTime, setNewPeriodEndTime] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingLayoutRoomId, setEditingLayoutRoomId] = useState<number | null>(
+    null,
+  );
+  const [editingLayoutPeriodId, setEditingLayoutPeriodId] = useState<
+    number | null
+  >(null);
   const [editingLabel, setEditingLabel] = useState<string | null>(null);
   const [editingStartTime, setEditingStartTime] = useState<string | null>(null);
   const [editingEndTime, setEditingEndTime] = useState<string | null>(null);
@@ -92,6 +101,19 @@ export default function ViewOrgPage() {
   const [copyTableData, setCopyTableData] = useState<boolean>(false);
   const [loadingTransferLayout, setLoadingTransferLayout] = useState(false);
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+
+  const {
+    isPending: findOrgRoleLoading,
+    data: userOrgRole,
+    refetch: refetchOrgRole,
+  } = useQuery(
+    orpc.org.findUserOrgRole.queryOptions({
+      input: { organization_id: orgId },
+      onError: (error: ORPCError<string, unknown>) => {
+        console.error("Error fetching organization:", error);
+      },
+    }),
+  );
 
   const addRoom = async (newRoomName: string) => {
     if (newRoomName.trim() === "") {
@@ -230,24 +252,26 @@ export default function ViewOrgPage() {
   };
 
   const updateLayoutDetails = async (
-    layoutId: number,
+    layoutRoomId: number,
+    layoutPeriodId: number,
     label: string,
-    layoutData: object,
   ) => {
     if (label.trim() === "") {
       toast.error("Layout label cannot be empty.");
       return;
     }
-    setLoadingConnectLayout(true);
-    const response = await orpc.org.updateRoomLayout.call({
-      id: layoutId,
+    setLoadingSaveItem(true);
+    const response = await orpc.org.updateLayoutLabel.call({
+      room_id: layoutRoomId,
+      time_period_id: layoutPeriodId,
       label: label,
-      layout_data: JSON.stringify(layoutData),
       organization_id: orgId,
     });
     toast.success("Layout updated.");
     await refetch();
-    setLoadingConnectLayout(false);
+    setLoadingSaveItem(false);
+    setEditingLayoutRoomId(null);
+    setEditingLayoutPeriodId(null);
   };
 
   const transferLayout = async (
@@ -274,6 +298,35 @@ export default function ViewOrgPage() {
       toast.error("Error transferring layout.");
     } finally {
       setLoadingTransferLayout(false);
+    }
+  };
+
+  const createAndOpenDraftFromApproved = async (layoutId: number) => {
+    try {
+      const response = await orpc.org.upsertDraftRoomLayout.call({
+        organization_id: orgId,
+        label: organization!.room_layouts.find(
+          (layout) => layout.id === layoutId,
+        )!.label,
+        layout_data: JSON.stringify(
+          organization!.room_layouts.find((layout) => layout.id === layoutId)!
+            .layout_data,
+        ),
+        time_period_id: organization!.room_layouts.find(
+          (layout) => layout.id === layoutId,
+        )!.time_period_id,
+        room_id: organization!.room_layouts.find(
+          (layout) => layout.id === layoutId,
+        )!.room_id,
+      });
+      if (response) {
+        router.push(
+          `/location/${organization!.id}/layout/${response[0].id}/edit`,
+        );
+      }
+    } catch (error) {
+      console.error("Error creating draft from approved layout:", error);
+      toast.error("Error creating draft from approved layout.");
     }
   };
 
@@ -439,9 +492,15 @@ export default function ViewOrgPage() {
                                 <div>
                                   <ItemTitle>{period.label}</ItemTitle>
                                   <ItemDescription>
-                                    {period.start_time.split(":").slice(0, 2).join(":")}{" "}
+                                    {period.start_time
+                                      .split(":")
+                                      .slice(0, 2)
+                                      .join(":")}{" "}
                                     -{" "}
-                                    {period.end_time.split(":").slice(0, 2).join(":")}
+                                    {period.end_time
+                                      .split(":")
+                                      .slice(0, 2)
+                                      .join(":")}
                                   </ItemDescription>
                                 </div>
                               )}
@@ -643,11 +702,35 @@ export default function ViewOrgPage() {
                                 layout_number / organization.rooms.length,
                               )
                             ].id;
-                          const found_layout = organization.room_layouts.filter(
-                            (layout) =>
-                              layout.room_id === layout_room_id &&
-                              layout.time_period_id === layout_period_id,
-                          );
+                          let found_layout = organization.room_layouts
+                            .filter(
+                              (layout) =>
+                                layout.room_id === layout_room_id &&
+                                layout.time_period_id === layout_period_id,
+                            )
+                            .sort((a, b) => {
+                              if (a.approved_at && b.approved_at) {
+                                return (
+                                  b.approved_at.getTime() -
+                                  a.approved_at.getTime()
+                                );
+                              }
+                              return 0;
+                            });
+                          const first_approved = found_layout.filter(
+                            (item) => item.approved_at,
+                          )[0];
+                          const first_unapproved = found_layout.filter(
+                            (item) => !item.approved_at,
+                          )[0];
+                          found_layout = first_approved
+                            ? first_unapproved
+                              ? [first_approved, first_unapproved]
+                              : [first_approved]
+                            : first_unapproved
+                              ? [first_unapproved]
+                              : [];
+
                           const existing_layout = found_layout.length > 0;
                           const layout_period =
                             organization.periods[
@@ -660,358 +743,389 @@ export default function ViewOrgPage() {
                               layout_number % organization.rooms.length
                             ];
                           return (
-                            <Item
+                            <div
+                              className="flex flex-col"
                               key={layout_room_id + "-" + layout_period_id}
-                              variant="outline"
                             >
-                              {existing_layout &&
-                              editingId === found_layout[0].id ? (
-                                <div className="flex flex-row gap-2 items-center">
-                                  <Input
-                                    type="text"
-                                    value={editingLabel ?? ""}
-                                    onChange={(e) => {
-                                      setEditingLabel(e.target.value);
-                                    }}
-                                  />
-                                </div>
-                              ) : (
-                                <ItemContent>
-                                  <ItemTitle>
-                                    {layout_room.label} x {layout_period.label}
-                                  </ItemTitle>
-                                  <ItemDescription>
-                                    {existing_layout
-                                      ? found_layout[0].label
-                                      : "No connected layout"}
-                                  </ItemDescription>
-                                </ItemContent>
-                              )}
-                              {existing_layout ? (
-                                <ItemActions>
-                                  {editingId === found_layout[0].id ? (
-                                    <div className="flex flex-row gap-2">
-                                      <Button
-                                        size="icon"
-                                        variant="outline"
-                                        disabled={
-                                          editingLabel?.trim() === "" ||
-                                          loadingSaveItem
-                                        }
-                                        onClick={() => {
-                                          updateLayoutDetails(
-                                            found_layout[0].id,
-                                            editingLabel ?? "",
-                                            JSON.parse(
-                                              JSON.stringify(
-                                                found_layout[0].layout_data,
-                                              ),
-                                            ),
-                                          );
-                                        }}
-                                      >
-                                        <SaveIcon />
-                                      </Button>
-                                      <Button
-                                        size="icon"
-                                        variant="outline"
-                                        onClick={() => {
-                                          setEditingId(null);
-                                        }}
-                                      >
-                                        <XIcon />
-                                      </Button>
-                                    </div>
-                                  ) : (
-                                    <div className="flex flex-row gap-2">
-                                      <Button
-                                        size="icon"
-                                        variant="outline"
-                                        onClick={() => {
-                                          setEditingId(found_layout[0].id);
-                                          setEditingLabel(
-                                            found_layout[0].label,
-                                          );
-                                        }}
-                                      >
-                                        <PencilIcon />
-                                      </Button>
-                                      <Button
-                                        size="icon"
-                                        variant="outline"
-                                        onClick={() => {
-                                          router.push(
-                                            `/location/${organization.id}/room/${found_layout[0].room_id}/period/${found_layout[0].time_period_id}/edit`,
-                                          );
-                                        }}
-                                      >
-                                        <ExternalLinkIcon />
-                                      </Button>
-                                      <Button
-                                        size="icon"
-                                        variant="outline"
-                                        onClick={() =>
-                                          setTransferDialogOpen(true)
-                                        }
-                                      >
-                                        <ForwardIcon />
-                                      </Button>
-                                      <Dialog
-                                        open={transferDialogOpen}
-                                        onOpenChange={setTransferDialogOpen}
-                                      >
-                                        <DialogContent>
-                                          <DialogHeader>
-                                            <DialogTitle>
-                                              Transfer Layout
-                                            </DialogTitle>
-                                            <DialogDescription>
-                                              {
-                                                "Copy one layout's data into another."
-                                              }
-                                            </DialogDescription>
-                                          </DialogHeader>
-                                          <div className="flex flex-col gap-4">
-                                            <div className="flex flex-row grid-cols-2 gap-2">
-                                              <Field>
-                                                <FieldLabel>From</FieldLabel>
-                                                <Select
-                                                  value={transferFromId}
-                                                  onValueChange={(value) =>
-                                                    setTransferFromId(value)
-                                                  }
-                                                  items={organization.room_layouts.map(
-                                                    (layout2) => {
-                                                      return {
-                                                        value: layout2.id,
-                                                        label: layout2.label,
-                                                      };
-                                                    },
-                                                  )}
-                                                >
-                                                  <SelectTrigger id="checkout-exp-month-ts6">
-                                                    <SelectValue />
-                                                  </SelectTrigger>
-                                                  <SelectContent>
-                                                    <SelectGroup>
-                                                      {organization.room_layouts
-                                                        .map((layout2) => {
-                                                          return {
-                                                            value: layout2.id,
-                                                            label:
-                                                              layout2.label,
-                                                          };
-                                                        })
-                                                        .map((item) => (
-                                                          <SelectItem
-                                                            key={item.value}
-                                                            value={item.value}
-                                                          >
-                                                            {item.label}
-                                                          </SelectItem>
-                                                        ))}
-                                                    </SelectGroup>
-                                                  </SelectContent>
-                                                </Select>
-                                              </Field>
-                                              <Field>
-                                                <FieldLabel>To</FieldLabel>
-                                                <Select
-                                                  value={transferToId}
-                                                  onValueChange={(value) =>
-                                                    setTransferToId(value)
-                                                  }
-                                                  items={organization.room_layouts.map(
-                                                    (layout2) => {
-                                                      return {
-                                                        value: layout2.id,
-                                                        label: layout2.label,
-                                                      };
-                                                    },
-                                                  )}
-                                                >
-                                                  <SelectTrigger>
-                                                    <SelectValue />
-                                                  </SelectTrigger>
-                                                  <SelectContent>
-                                                    <SelectGroup>
-                                                      {organization.room_layouts
-                                                        .map((layout2) => {
-                                                          return {
-                                                            value: layout2.id,
-                                                            label:
-                                                              layout2.label,
-                                                          };
-                                                        })
-                                                        .map((item) => (
-                                                          <SelectItem
-                                                            key={item.value}
-                                                            value={item.value}
-                                                          >
-                                                            {item.label}
-                                                          </SelectItem>
-                                                        ))}
-                                                    </SelectGroup>
-                                                  </SelectContent>
-                                                </Select>
-                                              </Field>
-                                            </div>
-                                            <Field orientation="horizontal">
-                                              <Checkbox
-                                                checked={copyTableData}
-                                                onCheckedChange={(checked) =>
-                                                  setCopyTableData(
-                                                    checked as boolean,
-                                                  )
-                                                }
-                                              />
-                                              <FieldLabel className="font-normal">
-                                                Copy table data
-                                              </FieldLabel>
-                                            </Field>
-                                            {transferFromId && transferToId && (
-                                              <Alert
-                                                variant="destructive"
-                                                className="max-w-md"
-                                              >
-                                                <AlertCircleIcon />
-                                                <AlertTitle>
-                                                  Important
-                                                </AlertTitle>
-                                                <AlertDescription>
-                                                  {`This action will overwrite all layout data (including table data) for the ${organization.room_layouts.filter((layout) => layout.id === transferFromId).length > 0 ? organization.room_layouts.filter((layout) => layout.id === transferToId)[0].label : "Unknown"} layout.`}
-                                                </AlertDescription>
-                                              </Alert>
-                                            )}
-                                          </div>
-                                          {transferFromId &&
-                                            transferToId &&
-                                            transferFromId == transferToId && (
-                                              <p>
-                                                Transfer from and to fields
-                                                cannot be equal.
-                                              </p>
-                                            )}
-                                          <DialogFooter>
+                              <Item
+                                key={layout_room_id + "-" + layout_period_id}
+                                variant="outline"
+                              >
+                                {existing_layout &&
+                                editingLayoutRoomId === layout_room_id &&
+                                editingLayoutPeriodId === layout_period_id ? (
+                                  <div className="flex flex-row gap-2 items-center">
+                                    <Input
+                                      type="text"
+                                      value={editingLabel ?? ""}
+                                      onChange={(e) => {
+                                        setEditingLabel(e.target.value);
+                                      }}
+                                    />
+                                  </div>
+                                ) : (
+                                  <ItemContent>
+                                    <ItemTitle>
+                                      {layout_room.label} x{" "}
+                                      {layout_period.label}
+                                    </ItemTitle>
+                                    <ItemDescription>
+                                      {existing_layout
+                                        ? found_layout[0].label
+                                        : "No connected layout"}
+                                    </ItemDescription>
+                                  </ItemContent>
+                                )}
+                                {existing_layout ? (
+                                  <ItemActions>
+                                    {editingLayoutRoomId === layout_room_id &&
+                                    editingLayoutPeriodId ===
+                                      layout_period_id ? (
+                                      <div className="flex flex-row gap-2">
+                                        <Button
+                                          size="icon"
+                                          variant="outline"
+                                          disabled={
+                                            editingLabel?.trim() === "" ||
+                                            loadingSaveItem
+                                          }
+                                          onClick={() => {
+                                            updateLayoutDetails(
+                                              layout_room_id,
+                                              layout_period_id,
+                                              editingLabel ?? "",
+                                            );
+                                          }}
+                                        >
+                                          <SaveIcon />
+                                        </Button>
+                                        <Button
+                                          size="icon"
+                                          variant="outline"
+                                          onClick={() => {
+                                            setEditingLayoutRoomId(null);
+                                            setEditingLayoutPeriodId(null);
+                                          }}
+                                        >
+                                          <XIcon />
+                                        </Button>
+                                      </div>
+                                    ) : (
+                                      <div className="flex flex-row gap-2">
+                                        <Button
+                                          size="icon"
+                                          variant="outline"
+                                          onClick={() => {
+                                            setEditingLayoutRoomId(
+                                              layout_room_id,
+                                            );
+                                            setEditingLayoutPeriodId(
+                                              layout_period_id,
+                                            );
+                                            setEditingLabel(
+                                              found_layout[0].label,
+                                            );
+                                          }}
+                                        >
+                                          <PencilIcon />
+                                        </Button>
+                                        {organization.room_layouts.filter(
+                                          (layout2) => layout2.approved_at,
+                                        ).length > 1 &&
+                                          found_layout.filter(
+                                            (layout2) => layout2.approved_at,
+                                          ).length > 0 && (
                                             <Button
-                                              disabled={
-                                                !transferFromId ||
-                                                !transferToId ||
-                                                transferFromId ===
-                                                  transferToId ||
-                                                loadingTransferLayout
-                                              }
-                                              onClick={async () => {
-                                                await transferLayout(
-                                                  transferFromId,
-                                                  transferToId,
-                                                  copyTableData,
-                                                );
-                                                setTransferDialogOpen(false);
-                                              }}
-                                            >
-                                              {loadingTransferLayout && (
-                                                <Spinner />
-                                              )}
-                                              Transfer
-                                            </Button>
-                                            <Button
+                                              size="icon"
                                               variant="outline"
                                               onClick={() =>
-                                                setTransferDialogOpen(false)
+                                                setTransferDialogOpen(true)
                                               }
                                             >
-                                              Close
+                                              <ForwardIcon />
                                             </Button>
-                                          </DialogFooter>
-                                        </DialogContent>
-                                      </Dialog>
-                                    </div>
-                                  )}
-                                </ItemActions>
-                              ) : (
-                                <ItemActions>
-                                  <Button
-                                    size="icon"
-                                    variant="outline"
-                                    onClick={() => {
-                                      addConnectedLayout(
-                                        layout_room_id,
-                                        layout_period_id,
-                                        layout_room.label +
-                                          " - " +
-                                          layout_period.label,
-                                      );
-                                    }}
-                                  >
-                                    <PlusIcon />
-                                  </Button>
-                                </ItemActions>
-                              )}
-                            </Item>
+                                          )}
+                                        <Dialog
+                                          open={transferDialogOpen}
+                                          onOpenChange={setTransferDialogOpen}
+                                        >
+                                          <DialogContent>
+                                            <DialogHeader>
+                                              <DialogTitle>
+                                                Transfer Layout
+                                              </DialogTitle>
+                                              <DialogDescription>
+                                                {
+                                                  "Copy one layout's data into another."
+                                                }
+                                              </DialogDescription>
+                                            </DialogHeader>
+                                            <div className="flex flex-col gap-4">
+                                              <div className="flex flex-row grid-cols-2 gap-2">
+                                                <Field>
+                                                  <FieldLabel>From</FieldLabel>
+                                                  <Select
+                                                    value={transferFromId}
+                                                    onValueChange={(value) =>
+                                                      setTransferFromId(value)
+                                                    }
+                                                    items={organization.room_layouts
+                                                      .filter(
+                                                        (layout2) =>
+                                                          layout2.approved_at,
+                                                      )
+                                                      .map((layout2) => {
+                                                        return {
+                                                          value: layout2.id,
+                                                          label: layout2.label,
+                                                        };
+                                                      })}
+                                                  >
+                                                    <SelectTrigger id="checkout-exp-month-ts6">
+                                                      <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                      <SelectGroup>
+                                                        {organization.room_layouts
+                                                          .filter(
+                                                            (layout2) =>
+                                                              layout2.approved_at,
+                                                          )
+                                                          .map((layout2) => {
+                                                            return {
+                                                              value: layout2.id,
+                                                              label:
+                                                                layout2.label,
+                                                            };
+                                                          })
+                                                          .map((item) => (
+                                                            <SelectItem
+                                                              key={item.value}
+                                                              value={item.value}
+                                                            >
+                                                              {item.label}
+                                                            </SelectItem>
+                                                          ))}
+                                                      </SelectGroup>
+                                                    </SelectContent>
+                                                  </Select>
+                                                </Field>
+                                                <Field>
+                                                  <FieldLabel>To</FieldLabel>
+                                                  <Select
+                                                    value={transferToId}
+                                                    onValueChange={(value) =>
+                                                      setTransferToId(value)
+                                                    }
+                                                    items={organization.room_layouts.map(
+                                                      (layout2) => {
+                                                        return {
+                                                          value: layout2.id,
+                                                          label: layout2.label,
+                                                        };
+                                                      },
+                                                    )}
+                                                  >
+                                                    <SelectTrigger>
+                                                      <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                      <SelectGroup>
+                                                        {organization.room_layouts
+                                                          .map((layout2) => {
+                                                            return {
+                                                              value: layout2.id,
+                                                              label:
+                                                                layout2.label,
+                                                            };
+                                                          })
+                                                          .map((item) => (
+                                                            <SelectItem
+                                                              key={item.value}
+                                                              value={item.value}
+                                                            >
+                                                              {item.label}
+                                                            </SelectItem>
+                                                          ))}
+                                                      </SelectGroup>
+                                                    </SelectContent>
+                                                  </Select>
+                                                </Field>
+                                              </div>
+                                              <Field orientation="horizontal">
+                                                <Checkbox
+                                                  checked={copyTableData}
+                                                  onCheckedChange={(checked) =>
+                                                    setCopyTableData(
+                                                      checked as boolean,
+                                                    )
+                                                  }
+                                                />
+                                                <FieldLabel className="font-normal">
+                                                  Copy table data
+                                                </FieldLabel>
+                                              </Field>
+                                              {transferFromId &&
+                                                transferToId && (
+                                                  <Alert
+                                                    variant="destructive"
+                                                    className="max-w-md"
+                                                  >
+                                                    <AlertCircleIcon />
+                                                    <AlertTitle>
+                                                      Important
+                                                    </AlertTitle>
+                                                    <AlertDescription>
+                                                      {`This action will overwrite all layout data (including table data) for the ${organization.room_layouts.filter((layout) => layout.id === transferFromId).length > 0 ? organization.room_layouts.filter((layout) => layout.id === transferToId)[0].label : "Unknown"} layout.`}
+                                                    </AlertDescription>
+                                                  </Alert>
+                                                )}
+                                            </div>
+                                            {transferFromId &&
+                                              transferToId &&
+                                              transferFromId ==
+                                                transferToId && (
+                                                <p>
+                                                  Transfer from and to fields
+                                                  cannot be equal.
+                                                </p>
+                                              )}
+                                            <DialogFooter>
+                                              <Button
+                                                disabled={
+                                                  !transferFromId ||
+                                                  !transferToId ||
+                                                  transferFromId ===
+                                                    transferToId ||
+                                                  loadingTransferLayout
+                                                }
+                                                onClick={async () => {
+                                                  await transferLayout(
+                                                    transferFromId,
+                                                    transferToId,
+                                                    copyTableData,
+                                                  );
+                                                  setTransferDialogOpen(false);
+                                                }}
+                                              >
+                                                {loadingTransferLayout && (
+                                                  <Spinner />
+                                                )}
+                                                Transfer
+                                              </Button>
+                                              <Button
+                                                variant="outline"
+                                                onClick={() =>
+                                                  setTransferDialogOpen(false)
+                                                }
+                                              >
+                                                Close
+                                              </Button>
+                                            </DialogFooter>
+                                          </DialogContent>
+                                        </Dialog>
+                                      </div>
+                                    )}
+                                  </ItemActions>
+                                ) : (
+                                  <ItemActions>
+                                    <Button
+                                      size="icon"
+                                      variant="outline"
+                                      onClick={() => {
+                                        addConnectedLayout(
+                                          layout_room_id,
+                                          layout_period_id,
+                                          layout_room.label +
+                                            " - " +
+                                            layout_period.label,
+                                        );
+                                      }}
+                                    >
+                                      <PlusIcon />
+                                    </Button>
+                                  </ItemActions>
+                                )}
+                              </Item>
+                              <div className="flex flex-col">
+                                {found_layout.map((layout) => {
+                                  return (
+                                    <Item
+                                      size="xs"
+                                      key={layout.id}
+                                      variant="outline"
+                                      className="flex flex-row"
+                                    >
+                                      <ItemContent>
+                                        <ItemTitle>
+                                          {layout.approved_at ? (
+                                            "Published"
+                                          ) : (
+                                            <div className="flex flex-row gap-2">
+                                              Staged
+                                              <Badge variant="secondary">
+                                                {userOrgRole?.role ===
+                                                "approver"
+                                                  ? "Open to approve"
+                                                  : "Pending approval"}
+                                              </Badge>
+                                            </div>
+                                          )}
+                                        </ItemTitle>
+                                      </ItemContent>
+                                      {layout.approved_at ? (
+                                        <ItemActions>
+                                          <Button
+                                            size="icon"
+                                            variant="outline"
+                                            onClick={() => {
+                                              router.push(
+                                                `/location/${organization.id}/layout/${layout.id}/view`,
+                                              );
+                                            }}
+                                          >
+                                            <EyeIcon />
+                                          </Button>
+                                          {found_layout.filter(
+                                            (item) => !item.approved_at,
+                                          ).length === 0 && (
+                                            <Button
+                                              size="icon"
+                                              variant="outline"
+                                              onClick={() => {
+                                                createAndOpenDraftFromApproved(
+                                                  layout.id,
+                                                );
+                                              }}
+                                            >
+                                              <FilePenIcon />
+                                            </Button>
+                                          )}
+                                        </ItemActions>
+                                      ) : (
+                                        <ItemActions>
+                                          <Button
+                                            size="icon"
+                                            variant="outline"
+                                            onClick={() => {
+                                              router.push(
+                                                `/location/${organization.id}/layout/${layout.id}/edit`,
+                                              );
+                                            }}
+                                          >
+                                            <ExternalLinkIcon />
+                                          </Button>
+                                        </ItemActions>
+                                      )}
+                                    </Item>
+                                  );
+                                })}
+                              </div>
+                            </div>
                           );
                         })
                       )}
                     </div>
-                    <Card className="mt-8">
-                      <CardHeader>
-                        <CardTitle>Add period</CardTitle>
-                      </CardHeader>
-                      <CardContent className="flex flex-col gap-4">
-                        <Field>
-                          <FieldLabel>Period Label</FieldLabel>
-                          <Input
-                            type="text"
-                            value={newPeriodLabel}
-                            onChange={(e) => setNewPeriodLabel(e.target.value)}
-                          />
-                        </Field>
-                        <Field>
-                          <FieldLabel>Start Time</FieldLabel>
-                          <Input
-                            type="time"
-                            id="start-time-picker"
-                            value={newPeriodStartTime}
-                            onChange={(e) =>
-                              setNewPeriodStartTime(e.target.value)
-                            }
-                            className="appearance-none bg-background [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
-                          />
-                        </Field>
-                        <Field>
-                          <FieldLabel>End Time</FieldLabel>
-                          <Input
-                            type="time"
-                            id="end-time-picker"
-                            value={newPeriodEndTime}
-                            onChange={(e) =>
-                              setNewPeriodEndTime(e.target.value)
-                            }
-                            className="appearance-none bg-background [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
-                          />
-                        </Field>
-                      </CardContent>
-                      <CardFooter>
-                        <Button
-                          disabled={
-                            newPeriodLabel.trim() === "" ||
-                            newPeriodStartTime.trim() === "" ||
-                            newPeriodEndTime.trim() === "" ||
-                            loadingAddItem
-                          }
-                          onClick={() =>
-                            addPeriod(
-                              newPeriodLabel,
-                              newPeriodStartTime,
-                              newPeriodEndTime,
-                            )
-                          }
-                        >
-                          {loadingAddItem ? <Spinner /> : <PlusIcon />}
-                          Add
-                        </Button>
-                      </CardFooter>
-                    </Card>
                   </TabsContent>
                 </Tabs>
               </div>

@@ -7,14 +7,15 @@ import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Fixture, FIXTURE_LABELS, RoomData, TableData } from "./types";
 import { Button } from "../ui/button";
-import { ButtonGroup } from "../ui/button-group";
-import { CheckIcon, CopyIcon, SaveIcon } from "lucide-react";
+import { CheckIcon, CopyIcon, FilePenIcon, SaveIcon } from "lucide-react";
 import { Spinner } from "../ui/spinner";
 import { Field, FieldLabel } from "../ui/field";
+import { Badge } from "../ui/badge";
 
 interface Props {
   fixture: Fixture | null;
   room: RoomData;
+  userRole: string | null;
   isMobile?: boolean;
   onChange: (changes: Partial<Fixture>) => void;
   onChangeRoom: (changes: Partial<RoomData>) => void;
@@ -22,11 +23,14 @@ interface Props {
   onDelete: () => void;
   onSaveData: () => void;
   loadingSave: boolean;
+  loadingApproveLayout: boolean;
+  onApproveLayout: () => void;
 }
 
 export default function PropertiesPanel({
   fixture,
   room,
+  userRole,
   isMobile = false,
   onChange,
   onChangeRoom,
@@ -34,6 +38,8 @@ export default function PropertiesPanel({
   onDelete,
   onSaveData,
   loadingSave,
+  loadingApproveLayout,
+  onApproveLayout,
 }: Props) {
   const tableData = fixture?.type.startsWith("table")
     ? room.tableData.find((t) => t.id === fixture.id) || null
@@ -60,55 +66,83 @@ export default function PropertiesPanel({
         className={
           isMobile
             ? "w-full max-h-[36vh] border-t flex flex-col p-3 gap-4 overflow-y-auto lg:w-[220px] lg:max-h-none lg:border-t-0 lg:border-l"
-            : "w-[220px] border-l flex flex-col p-4 gap-5 overflow-y-auto"
+            : "w-[220px] border-l flex flex-col p-4 gap-4 overflow-y-auto"
         }
       >
-        <Field>
+        <div className="flex flex-col gap-2">
+          <p>{room.name}</p>
+          <div className="flex flex-row items-center justify-start gap-2">
+            <p className="text-sm font-medium">Version:</p>
+            <Badge variant="secondary">
+              {room.approvedAt ? "Published" : "Staged"}
+            </Badge>
+          </div>
+        </div>
+        {/* <Field>
           <FieldLabel>Room Label</FieldLabel>
           <Input
             type="text"
             value={room.name}
             onChange={(e) => onChangeRoom({ name: e.target.value })}
           />
-        </Field>
-        <Field>
-          <FieldLabel>Room Occupancy</FieldLabel>
-          <Input
-            type="number"
-            value={room.occupancy}
-            onChange={(e) =>
-              onChangeRoom({ occupancy: Number(e.target.value) })
-            }
-          />
-        </Field>
-        <Field>
-          <FieldLabel>Room Width</FieldLabel>
-          <Input
-            type="number"
-            value={room.canvasWidth}
-            onChange={(e) =>
-              onChangeRoom({ canvasWidth: Number(e.target.value) })
-            }
-          />
-        </Field>
-        <Field>
-          <FieldLabel>Room Height</FieldLabel>
-          <Input
-            type="number"
-            value={room.canvasHeight}
-            onChange={(e) =>
-              onChangeRoom({ canvasHeight: Number(e.target.value) })
-            }
-          />
-        </Field>
-        <Button disabled={loadingSave} onClick={onSaveData}>
-          {loadingSave ? <Spinner /> : <SaveIcon />}
-          Save Changes
-        </Button>
-        <Button disabled={loadingSave} onClick={copyRoomDataToClipboard} variant="outline">
-          {copiedToClipboard ? <CheckIcon /> : <CopyIcon />}
-          Copy layout data
-        </Button>
+        </Field> */}
+        {userRole === "approver" && room.approvedAt === null && (
+          <div className="flex flex-col gap-2">
+            <hr className="mb-2"></hr>
+            <p>This staged version is pending approval.</p>
+            <Button disabled={loadingApproveLayout} onClick={onApproveLayout}>
+              {loadingApproveLayout ? <Spinner /> : <CheckIcon />}
+              Approve
+            </Button>
+          </div>
+        )}
+        {room.approvedAt === null && (
+          <div className="flex flex-col gap-2">
+            <hr className="mb-2"></hr>
+            <Field>
+              <FieldLabel>Room Occupancy</FieldLabel>
+              <Input
+                type="number"
+                value={room.occupancy}
+                onChange={(e) =>
+                  onChangeRoom({ occupancy: Number(e.target.value) })
+                }
+              />
+            </Field>
+            <Field>
+              <FieldLabel>Room Width</FieldLabel>
+              <Input
+                type="number"
+                value={room.canvasWidth}
+                onChange={(e) =>
+                  onChangeRoom({ canvasWidth: Number(e.target.value) })
+                }
+              />
+            </Field>
+            <Field>
+              <FieldLabel>Room Height</FieldLabel>
+              <Input
+                type="number"
+                value={room.canvasHeight}
+                onChange={(e) =>
+                  onChangeRoom({ canvasHeight: Number(e.target.value) })
+                }
+              />
+            </Field>
+            <Button disabled={loadingSave} onClick={onSaveData}>
+              {loadingSave ? <Spinner /> : <SaveIcon />}
+              Save Staged
+            </Button>
+            <Button
+              disabled={loadingSave}
+              onClick={copyRoomDataToClipboard}
+              variant="outline"
+            >
+              {copiedToClipboard ? <CheckIcon /> : <CopyIcon />}
+              Copy layout data
+            </Button>
+          </div>
+        )}
       </aside>
     );
   }

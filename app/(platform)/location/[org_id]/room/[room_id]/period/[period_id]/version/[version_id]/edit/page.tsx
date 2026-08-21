@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 
 const RoomEditor = dynamic(
-  () => import("../../../../../../../../components/RoomEditor/RoomEditor"),
+  () => import("../../../../../../../../../../components/RoomEditor/RoomEditor"),
   {
     ssr: false,
     loading: () => (

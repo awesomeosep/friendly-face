@@ -25,11 +25,12 @@ interface EditorState {
   importRoom: (data: RoomData) => void;
   exportRoom: () => RoomData;
   setRoomUpdatedAt: (timestamp: string) => void;
+  setRoomApprovedAt: (timestamp: string) => void;
+  setRoomApprovedBy: (approvedBy: string | null) => void;
 }
 
 const DEFAULT_ROOM: RoomData = {
   id: 1,
-  // Math.floor(Math.random() * 1000000) + 1
   name: "New Room",
   occupancy: 100,
   canvasWidth: 1000,
@@ -37,6 +38,9 @@ const DEFAULT_ROOM: RoomData = {
   fixtures: [],
   tableData: [],
   updatedAt: new Date().toISOString(),
+  updatedBy: null,
+  approvedAt: "",
+  approvedBy: null,
 };
 
 export const useEditorStore = create<EditorState>((set, get) => ({
@@ -142,5 +146,15 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setRoomUpdatedAt: (timestamp: string) =>
     set((s) => ({
       room: { ...s.room, updatedAt: timestamp },
+    })),
+
+  setRoomApprovedAt: (timestamp: string) =>
+    set((s) => ({
+      room: { ...s.room, approvedAt: timestamp },
+    })),
+
+  setRoomApprovedBy: (approvedBy: string | null) =>
+    set((s) => ({
+      room: { ...s.room, approvedBy },
     })),
 }));

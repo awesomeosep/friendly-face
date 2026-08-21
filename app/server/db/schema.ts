@@ -1,6 +1,14 @@
 import { relations } from "drizzle-orm";
 import { boolean } from "drizzle-orm/pg-core";
-import { text, timestamp, time, uuid, jsonb, integer, pgTable } from "drizzle-orm/pg-core";
+import {
+  text,
+  timestamp,
+  time,
+  uuid,
+  jsonb,
+  integer,
+  pgTable,
+} from "drizzle-orm/pg-core";
 
 export const adminTable = pgTable("admins", {
   id: uuid("id").primaryKey(),
@@ -12,7 +20,9 @@ export const adminTable = pgTable("admins", {
 });
 
 export const organizationTable = pgTable("organizations", {
-  id: integer("id").primaryKey().$defaultFn(() => Math.floor(Math.random() * 1000000)),
+  id: integer("id")
+    .primaryKey()
+    .$defaultFn(() => Math.floor(Math.random() * 1000000)),
   name: text("name").notNull(),
   code: text("code").notNull(),
   createdAt: timestamp("created_at")
@@ -22,14 +32,18 @@ export const organizationTable = pgTable("organizations", {
     .$defaultFn(() => crypto.randomUUID())
     .notNull()
     .references(() => adminTable.id, { onDelete: "cascade" }),
-  is_hidden: boolean("is_hidden").notNull().$defaultFn(() => false),
+  is_hidden: boolean("is_hidden")
+    .notNull()
+    .$defaultFn(() => false),
   custom_message_visible: boolean("custom_message_visible"),
   custom_message: text("custom_message"),
-  layouts_disabled: boolean("layouts_disabled")
+  layouts_disabled: boolean("layouts_disabled"),
 });
 
 export const periodTable = pgTable("periods", {
-  id: integer("id").primaryKey().$defaultFn(() => Math.floor(Math.random() * 1000000)),
+  id: integer("id")
+    .primaryKey()
+    .$defaultFn(() => Math.floor(Math.random() * 1000000)),
   organization_id: integer("organization_id")
     .notNull()
     .references(() => organizationTable.id, { onDelete: "cascade" }),
@@ -42,7 +56,9 @@ export const periodTable = pgTable("periods", {
 });
 
 export const roomLayoutTable = pgTable("room_layouts", {
-  id: integer("id").primaryKey().$defaultFn(() => Math.floor(Math.random() * 1000000)),
+  id: integer("id")
+    .primaryKey()
+    .$defaultFn(() => Math.floor(Math.random() * 1000000)),
   organization_id: integer("organization_id")
     .notNull()
     .references(() => organizationTable.id, { onDelete: "cascade" }),
@@ -59,23 +75,38 @@ export const roomLayoutTable = pgTable("room_layouts", {
     .notNull(),
   updated_at: timestamp("updated_at")
     .$defaultFn(() => new Date())
-    .notNull()
+    .notNull(),
+  updated_by: uuid().references(() => adminTable.id, { onDelete: "cascade" }),
+  updated_by_ip: text("updated_by_ip"),
+  approved_at: timestamp("approved_at"),
+  approved_by: uuid().references(() => adminTable.id, { onDelete: "cascade" }),
+  approved_by_ip: text("approved_by_ip"),
 });
 
 export const roomTable = pgTable("rooms", {
-  id: integer("id").primaryKey().$defaultFn(() => Math.floor(Math.random() * 1000000)),
+  id: integer("id")
+    .primaryKey()
+    .$defaultFn(() => Math.floor(Math.random() * 1000000)),
   organization_id: integer("organization_id")
     .notNull()
     .references(() => organizationTable.id, { onDelete: "cascade" }),
   label: text("label").notNull(),
 });
 
-export const adminRelations = relations(
-  adminTable,
-  ({ many }) => ({
-    organizations: many(organizationTable),
+export const orgRoleTable = pgTable("org_roles", {
+  id: integer("id")
+    .primaryKey()
+    .$defaultFn(() => Math.floor(Math.random() * 1000000)),
+  organization_id: integer("organization_id")
+    .notNull()
+    .references(() => organizationTable.id, { onDelete: "cascade" }),
+  admin_id: uuid("user_id").references(() => adminTable.id, {
+    onDelete: "cascade",
   }),
-);
+  role: text("role"),
+});
+
+// export const adminRelations = relations(adminTable);
 
 export const organizationRelations = relations(
   organizationTable,
@@ -112,5 +143,20 @@ export const roomLayoutRelations = relations(roomLayoutTable, ({ one }) => ({
   room: one(roomTable, {
     fields: [roomLayoutTable.room_id],
     references: [roomTable.id],
+  }),
+  admin: one(adminTable, {
+    fields: [roomLayoutTable.updated_by, roomLayoutTable.approved_by],
+    references: [adminTable.id, adminTable.id],
+  }),
+}));
+
+export const orgRoleRelations = relations(orgRoleTable, ({ one }) => ({
+  org: one(organizationTable, {
+    fields: [orgRoleTable.organization_id],
+    references: [organizationTable.id],
+  }),
+  admin: one(adminTable, {
+    fields: [orgRoleTable.admin_id],
+    references: [adminTable.id],
   }),
 }));

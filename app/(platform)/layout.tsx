@@ -21,7 +21,7 @@ export default function Layout({
         </div>
         <div className="border-t border-black h-fit p-2 flex flex-row border-black">
           <p className="text-xs text-muted-foreground">
-            Frindly Face is currently being piloted. Exercise judgement when finding a table. If you encounter issues or
+            Friendly Face is currently being piloted. Exercise judgement when finding a table. If you encounter issues or
             any form of unacceptable behavior, report to your school counselor
             or administrators.
           </p>
