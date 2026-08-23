@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useCallback, useEffect, useState } from "react";
-import { Stage, Layer, Line } from "react-konva";
+import { Stage, Layer, Line, Text } from "react-konva";
 import Konva from "konva";
 import { useEditorStore } from "./useEditorStore";
 import { FixtureType, FIXTURE_DEFAULTS, RoomData } from "./types";
@@ -13,7 +13,7 @@ import { client, orpc } from "@/lib/orpc";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { ORPCError } from "@orpc/client";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { LayoutDataSchema } from "@/lib/schema";
 
 const GRID_SIZE = 20;
@@ -22,16 +22,19 @@ const MAX_SCALE = 8;
 
 type ParamsType = {
   org_id: string;
-  room_id: string;
-  period_id: string;
+  layout_id: string;
+  // room_id: string;
+  // period_id: string;
 };
 
 Konva.hitOnDragEnabled = true;
 
 export default function RoomEditor(props: { mode: "edit" | "view" }) {
+  const router = useRouter();
   const orgId = parseInt(useParams<ParamsType>().org_id);
-  const roomId = parseInt(useParams<ParamsType>().room_id);
-  const periodId = parseInt(useParams<ParamsType>().period_id);
+  const layoutId = parseInt(useParams<ParamsType>().layout_id);
+  // const roomId = parseInt(useParams<ParamsType>().room_id);
+  // const periodId = parseInt(useParams<ParamsType>().period_id);
 
   const stageRef = useRef<Konva.Stage>(null);
   // const containerRef = useRef<HTMLDivElement>(null);
@@ -54,6 +57,7 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
     y: number;
   } | null>(null);
   const [loadingSave, setLoadingSave] = useState(false);
+  const [loadingApproveLayout, setLoadingApproveLayout] = useState(false);
   const [containerElement, setContainerElement] = useState<HTMLElement | null>(
     null,
   );
@@ -96,6 +100,8 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
     importRoom,
     exportRoom,
     setRoomUpdatedAt,
+    setRoomApprovedAt,
+    setRoomApprovedBy,
   } = useEditorStore();
 
   const {
@@ -103,16 +109,34 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
     data: roomData,
     isSuccess: roomDataSuccess,
   } = useQuery(
-    orpc.org.findRoomDataByRoomPeriod.queryOptions({
+    orpc.org.findRoomDataByLayoutId.queryOptions({
       staleTime: Infinity,
       cacheTime: Infinity,
       input: {
-        org_id: orgId.toString(),
-        room_id: roomId.toString(),
-        period_id: periodId.toString(),
+        organization_id: orgId,
+        id: layoutId,
+        // room_id: roomId.toString(),
+        // period_id: periodId.toString(),
       },
       onError: (error: ORPCError<string, unknown>) => {
         console.error("Error fetching organization:", error);
+      },
+    }),
+  );
+
+  const {
+    isPending: userRoleLoading,
+    data: userRole,
+    isSuccess: userRoleSuccess,
+  } = useQuery(
+    orpc.org.findUserOrgRole.queryOptions({
+      staleTime: Infinity,
+      cacheTime: Infinity,
+      input: {
+        organization_id: orgId,
+      },
+      onError: (error: ORPCError<string, unknown>) => {
+        console.error("Error fetching user role:", error);
       },
     }),
   );
@@ -159,6 +183,9 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
             : [],
           updatedAt:
             roomData.updated_at?.toISOString() ?? new Date().toISOString(),
+          updatedBy: roomData.updated_by ?? null,
+          approvedAt: roomData.approved_at?.toISOString() ?? null,
+          approvedBy: roomData.approved_by ?? null,
         };
         importRoom(newRoomData);
       }
@@ -223,7 +250,13 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
     const scale = clampScale(
       Math.min(availableWidth / canvasWidth, availableHeight / canvasHeight),
     );
-    const setViewportFn = (scale: number, stageWidth: number, canvasWidth: number, stageHeight: number, canvasHeight: number) => {
+    const setViewportFn = (
+      scale: number,
+      stageWidth: number,
+      canvasWidth: number,
+      stageHeight: number,
+      canvasHeight: number,
+    ) => {
       setViewport({
         scale,
         x: (stageWidth - canvasWidth * scale) / 2,
@@ -520,13 +553,14 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
   const saveDataToServer = async () => {
     setLoadingSave(true);
     try {
-      const roomData = exportRoom();
-      const { id, name, updatedAt, ...submitData } = roomData;
+      const exportRoomData = exportRoom();
+      const { id, name, updatedAt, ...submitData } = exportRoomData;
       console.log(JSON.stringify(submitData));
       console.log("id: ", id);
 
-      const response = await client.org.updateRoomLayout({
-        id,
+      const response = await client.org.upsertDraftRoomLayout({
+        room_id: roomData!.room_id,
+        time_period_id: roomData!.time_period_id,
         label: name,
         layout_data: JSON.stringify(submitData),
         organization_id: orgId,
@@ -542,6 +576,45 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
       toast.error("Error saving room data.");
     } finally {
       setLoadingSave(false);
+    }
+  };
+
+  const approveDraft = async () => {
+    setLoadingApproveLayout(true);
+    try {
+      const exportRoomData = exportRoom();
+      const { id, name, updatedAt, ...submitData } = exportRoomData;
+      const saveResponse = await client.org.upsertDraftRoomLayout({
+        label: roomData!.label,
+        organization_id: orgId,
+        time_period_id: roomData!.time_period_id,
+        layout_data: JSON.stringify(submitData),
+        room_id: roomData!.room_id,
+      });
+      if (!saveResponse) {
+        toast.error("Error saving layout.");
+        return;
+      }
+      console.log(roomData!.id!);
+      const response = await client.org.approveRoomLayout({
+        id: roomData!.id!,
+        organization_id: orgId,
+      });
+      if (!response) {
+        toast.error("Error approving layout.");
+      } else {
+        setRoomApprovedAt(new Date().toISOString());
+        setRoomApprovedBy(userRole?.admin_id ?? null);
+        toast.success("Layout approved and published.");
+        router.push(
+          `/location/${roomData!.organization_id}/layout/${roomData!.id}/view`,
+        );
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Error saving room data.");
+    } finally {
+      setLoadingApproveLayout(false);
     }
   };
 
@@ -649,6 +722,23 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
                   scaleX={viewport.scale}
                   scaleY={viewport.scale}
                 >
+                  <Layer>
+                    <Text
+                      x={0}
+                      y={-40}
+                      text={
+                        roomData.label +
+                        (userRole
+                          ? roomData.approved_at
+                            ? " (Published)"
+                            : " (Staged)"
+                          : "")
+                      }
+                      fontSize={20}
+                      fill="#000000"
+                      align="center"
+                    />
+                  </Layer>
                   <Layer>{gridLines()}</Layer>
                   <Layer>
                     {room.fixtures.map((fixture) => (
@@ -694,6 +784,7 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
               <PropertiesPanel
                 room={room}
                 fixture={selectedFixture}
+                userRole={userRole?.role ?? null}
                 isMobile={isMobile}
                 onChange={(changes) =>
                   selectedId && updateFixture(selectedId, changes)
@@ -705,6 +796,8 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
                 onDelete={() => selectedId && deleteFixture(selectedId)}
                 onSaveData={saveDataToServer}
                 loadingSave={loadingSave}
+                loadingApproveLayout={loadingApproveLayout}
+                onApproveLayout={approveDraft}
               />
             )}
 
@@ -729,23 +822,39 @@ export default function RoomEditor(props: { mode: "edit" | "view" }) {
           </div>
 
           {/* Status bar */}
-          {props.mode == "edit" && (
-            <div className="h-6  border-t  flex items-center px-4 gap-4">
-              <span className="text-[10px] text-[#3a4a60]">
-                {room.fixtures.length} fixture
-                {room.fixtures.length !== 1 ? "s" : ""}
-              </span>
-              {selectedFixture && (
-                <span className="text-[10px] text-[#4a9eff]">
-                  {selectedFixture.type} x{Math.round(selectedFixture.x)} y
-                  {Math.round(selectedFixture.y)}
+          <div className="h-6  border-t  flex items-center px-4 gap-4">
+            {props.mode === "edit" ? (
+              <>
+                <span className="text-[10px] text-[#3a4a60]">
+                  {room.fixtures.length} fixture
+                  {room.fixtures.length !== 1 ? "s" : ""}
                 </span>
-              )}
-              <span className="ml-auto text-[10px] text-[#2a3545]">
-                Last saved: {new Date(room.updatedAt).toLocaleTimeString()}
-              </span>
-            </div>
-          )}
+                {selectedFixture && (
+                  <span className="text-[10px] text-[#4a9eff]">
+                    {selectedFixture.type} x{Math.round(selectedFixture.x)} y
+                    {Math.round(selectedFixture.y)}
+                  </span>
+                )}
+                <span className="ml-auto text-[10px] text-[#2a3545]">
+                  Last saved: {new Date(room.updatedAt).toLocaleTimeString()}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="ml-auto text-[10px] text-[#2a3545]">
+                  Last {room.approvedAt ? "approved" : "updated"}:{" "}
+                  {new Date(
+                    room.approvedAt ?? room.updatedAt,
+                  ).toLocaleString()}{" "}
+                  by{" "}
+                  {room.approvedAt
+                    ? (roomData.approved_by_admin?.name ?? roomData.approved_by)
+                    : (roomData.updated_by_admin?.name ??
+                      roomData.updated_by)}
+                </span>
+              </>
+            )}
+          </div>
 
           {/* Esc cancels placement */}
           {pendingFixture && (

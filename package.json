@@ -7,9 +7,16 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:start-studio": "docker compose up -d && drizzle-kit studio --config=drizzle.local.ts --port 4984",
+    "db:generate": "drizzle-kit generate drizzle-kit push --config=drizzle.local.ts",
+    "db:migrate": "drizzle-kit migrate drizzle-kit push --config=drizzle.local.ts",
+    "db:push": "drizzle-kit push --config=drizzle.local.ts",
+    "db:studio": "docker compose up -d && drizzle-kit studio --config=drizzle.local.ts",
+    "db:studio:prod": "drizzle-kit studio --config=drizzle.config.ts",
+    "db:push:prod": "drizzle-kit push --config=drizzle.config.ts",
+    "db:migrate:prod": "drizzle-kit migrate drizzle-kit push --config=drizzle.config.ts",
+    "db:generate:prod": "drizzle-kit generate drizzle-kit",
+    "db:seed-local": "docker compose up -d && drizzle-kit push --config=drizzle.local.ts && npx tsx scripts/seed-local.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

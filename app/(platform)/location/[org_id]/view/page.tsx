@@ -53,10 +53,10 @@ export default function ViewOrgPage() {
                   <h1 className="text-3xl font-heading">{organization.name}</h1>
                   <p>Code: {organization.code}</p>
                   {organization.custom_message_visible && (
-                  <div>
-                    <p>{organization.custom_message}</p>
-                  </div>
-                )}
+                    <div>
+                      <p>{organization.custom_message}</p>
+                    </div>
+                  )}
                 </div>
                 {organization.layouts_disabled ? (
                   !organization.custom_message_visible && (
@@ -173,16 +173,54 @@ export default function ViewOrgPage() {
                       </Card> */}
                       </div>
                     </div>
+                    {selectedPeriod &&
+                      selectedRoom &&
+                      organization.room_layouts.filter(
+                        (layout) =>
+                          layout.time_period_id === selectedPeriod &&
+                          layout.room_id === selectedRoom &&
+                          layout.approved_at !== null,
+                      ).length === 0 && (
+                        <p className="text-sm text-muted-foreground mt-4">
+                          No published layout found for the selected room and
+                          period.
+                        </p>
+                      )}
                     <Button
                       disabled={
-                        !selectedRoom || !selectedPeriod || loadingViewRoom
+                        !selectedRoom ||
+                        !selectedPeriod ||
+                        loadingViewRoom ||
+                        organization.room_layouts.filter(
+                          (layout) =>
+                            layout.time_period_id === selectedPeriod &&
+                            layout.room_id === selectedRoom &&
+                            layout.approved_at !== null,
+                        ).length === 0
                       }
                       className="mt-6 gap-2"
                       onClick={() => {
                         setLoadingViewRoom(true);
                         if (selectedRoom && selectedPeriod) {
+                          const sortedLayouts = organization.room_layouts
+                            .filter(
+                              (layout) =>
+                                layout.time_period_id === selectedPeriod &&
+                                layout.room_id === selectedRoom &&
+                                layout.approved_at !== null,
+                            )
+                            .sort((a, b) => {
+                              if (a.approved_at && b.approved_at) {
+                                return (
+                                  b.approved_at.getTime() -
+                                  a.approved_at.getTime()
+                                );
+                              }
+                              return 0;
+                            });
+                          const latestLayout = sortedLayouts[0];
                           router.push(
-                            `/location/${organization.id}/room/${selectedRoom}/period/${selectedPeriod}/view`,
+                            `/location/${organization.id}/layout/${latestLayout.id}/view`,
                           );
                         }
                       }}

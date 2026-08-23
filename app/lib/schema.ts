@@ -9,7 +9,7 @@ export const OrgSchema = z.object({
   is_hidden: z.boolean(),
   custom_message_visible: z.boolean(),
   custom_message: z.string(),
-  layouts_disabled: z.boolean()
+  layouts_disabled: z.boolean(),
 });
 
 export const PeriodSchema = z.object({
@@ -79,5 +79,14 @@ export const RoomLayoutSchema = z.object({
   layout_data: LayoutDataSchema,
   created_at: z.date(),
   updated_at: z.date(),
+  updated_by: z.uuid(),
+  approved_at: z.date(),
+  approved_by: z.uuid(),
 });
 
+export const OrgRoleSchema = z.object({
+  id: z.number().int(),
+  organization_id: z.number().int(),
+  admin_id: z.uuid(),
+  role: z.string()
+})

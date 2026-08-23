@@ -36,6 +36,9 @@ export interface RoomData {
   fixtures: Fixture[];
   tableData: TableData[];
   updatedAt: string;
+  updatedBy: string | null;
+  approvedAt: string | null;
+  approvedBy: string | null;
 }
 
 export const FIXTURE_DEFAULTS: Record<
