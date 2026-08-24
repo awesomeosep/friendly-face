@@ -233,7 +233,7 @@ export default function PropertiesPanel({
         </TabsContent>
         <TabsContent value="data">
           <div className="flex flex-col gap-3">
-            <Field>
+            {/* <Field>
               <FieldLabel>Seats</FieldLabel>
               <Input
                 type="number"
@@ -252,7 +252,7 @@ export default function PropertiesPanel({
                   onChangeTableData({ seatsFilled: Number(e.target.value) })
                 }
               />
-            </Field>
+            </Field> */}
             <Field>
               <FieldLabel>Open to more people?</FieldLabel>
               <RadioGroup

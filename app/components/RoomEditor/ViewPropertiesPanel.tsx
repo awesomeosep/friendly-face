@@ -42,7 +42,7 @@ export default function PropertiesPanel({
         </Field>
       </div>
       <p>This table is welcoming new people!</p>
-      {false && (
+      {/* {false && (
         <Field label="Seats Open">
           <p>
             {(tableData?.seats ?? 0) - (tableData?.seatsFilled ?? 0)}/
@@ -50,7 +50,7 @@ export default function PropertiesPanel({
             
           </p>
         </Field>
-      )}
+      )} */}
       <Field label="Interests">
         <p>{tableData?.interests || "---"}</p>
       </Field>
