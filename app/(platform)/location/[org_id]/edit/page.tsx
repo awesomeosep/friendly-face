@@ -656,60 +656,66 @@ export default function ViewOrgPage() {
                               organization.rooms.length,
                           ).keys(),
                         ]
-                          .sort((a1, b1) =>
-                            (organization.room_layouts
-                              .sort((a2, b2) => {
-                                if (
-                                  a2.approved_at === null ||
-                                  b2.approved_at === null
-                                ) {
-                                  return 0;
-                                } else {
-                                  return (
-                                    a2.approved_at.getTime() -
-                                    b2.approved_at.getTime()
-                                  );
-                                }
-                              })
-                              .find(
-                                (item2) =>
-                                  item2.time_period_id ===
-                                    organization.periods[
-                                      Math.floor(a1 / organization.rooms.length)
-                                    ].id &&
-                                  item2.room_id ===
-                                    organization.rooms[
-                                      a1 % organization.rooms.length
-                                    ].id,
-                              )?.approved_at === null
-                              ? 0
-                              : 1) - (organization.room_layouts
-                              .sort((a2, b2) => {
-                                if (
-                                  a2.approved_at === null ||
-                                  b2.approved_at === null
-                                ) {
-                                  return 0;
-                                } else {
-                                  return (
-                                    a2.approved_at.getTime() -
-                                    b2.approved_at.getTime()
-                                  );
-                                }
-                              })
-                              .find(
-                                (item2) =>
-                                  item2.time_period_id ===
-                                    organization.periods[
-                                      Math.floor(b1 / organization.rooms.length)
-                                    ].id &&
-                                  item2.room_id ===
-                                    organization.rooms[
-                                      b1 % organization.rooms.length
-                                    ].id,
-                              )?.approved_at === null
-                              ? 0
-                              : 1),
+                          .sort(
+                            (a1, b1) =>
+                              (organization.room_layouts
+                                .sort((a2, b2) => {
+                                  if (
+                                    a2.approved_at === null ||
+                                    b2.approved_at === null
+                                  ) {
+                                    return 0;
+                                  } else {
+                                    return (
+                                      a2.approved_at.getTime() -
+                                      b2.approved_at.getTime()
+                                    );
+                                  }
+                                })
+                                .find(
+                                  (item2) =>
+                                    item2.time_period_id ===
+                                      organization.periods[
+                                        Math.floor(
+                                          a1 / organization.rooms.length,
+                                        )
+                                      ].id &&
+                                    item2.room_id ===
+                                      organization.rooms[
+                                        a1 % organization.rooms.length
+                                      ].id,
+                                )?.approved_at === null
+                                ? 0
+                                : 1) -
+                              (organization.room_layouts
+                                .sort((a2, b2) => {
+                                  if (
+                                    a2.approved_at === null ||
+                                    b2.approved_at === null
+                                  ) {
+                                    return 0;
+                                  } else {
+                                    return (
+                                      a2.approved_at.getTime() -
+                                      b2.approved_at.getTime()
+                                    );
+                                  }
+                                })
+                                .find(
+                                  (item2) =>
+                                    item2.time_period_id ===
+                                      organization.periods[
+                                        Math.floor(
+                                          b1 / organization.rooms.length,
+                                        )
+                                      ].id &&
+                                    item2.room_id ===
+                                      organization.rooms[
+                                        b1 % organization.rooms.length
+                                      ].id,
+                                )?.approved_at === null
+                                ? 0
+                                : 1),
                           )
                           .map((layout_number) => {
                             const possibleLayouts = [
@@ -938,8 +944,24 @@ export default function ViewOrgPage() {
                                                             value: layout2.id,
                                                             label:
                                                               layout2.label,
+                                                            superseded:
+                                                              organization.room_layouts.filter(
+                                                                (layout3) =>
+                                                                  layout3.room_id ===
+                                                                    layout2.room_id &&
+                                                                  layout3.time_period_id ===
+                                                                    layout2.time_period_id &&
+                                                                  layout3.approved_at &&
+                                                                  layout2.approved_at &&
+                                                                  layout3.approved_at.getTime() >
+                                                                    layout2.approved_at.getTime(),
+                                                              ).length > 0,
                                                           };
-                                                        })}
+                                                        })
+                                                        .filter(
+                                                          (layout2) =>
+                                                            !layout2.superseded,
+                                                        )}
                                                     >
                                                       <SelectTrigger id="checkout-exp-month-ts6">
                                                         <SelectValue />
@@ -957,8 +979,24 @@ export default function ViewOrgPage() {
                                                                   layout2.id,
                                                                 label:
                                                                   layout2.label,
+                                                                superseded:
+                                                                  organization.room_layouts.filter(
+                                                                    (layout3) =>
+                                                                      layout3.room_id ===
+                                                                        layout2.room_id &&
+                                                                      layout3.time_period_id ===
+                                                                        layout2.time_period_id &&
+                                                                      layout3.approved_at &&
+                                                                      layout2.approved_at &&
+                                                                      layout3.approved_at.getTime() >
+                                                                        layout2.approved_at.getTime(),
+                                                                  ).length > 0,
                                                               };
                                                             })
+                                                            .filter(
+                                                              (layout2) =>
+                                                                !layout2.superseded,
+                                                            )
                                                             .map((item) => (
                                                               <SelectItem
                                                                 key={item.value}
@@ -980,15 +1018,34 @@ export default function ViewOrgPage() {
                                                       onValueChange={(value) =>
                                                         setTransferToId(value)
                                                       }
-                                                      items={organization.room_layouts.map(
-                                                        (layout2) => {
+                                                      items={organization.room_layouts
+                                                        .filter(
+                                                          (layout2) =>
+                                                            layout2.approved_at,
+                                                        )
+                                                        .map((layout2) => {
                                                           return {
                                                             value: layout2.id,
                                                             label:
                                                               layout2.label,
+                                                            superseded:
+                                                              organization.room_layouts.filter(
+                                                                (layout3) =>
+                                                                  layout3.room_id ===
+                                                                    layout2.room_id &&
+                                                                  layout3.time_period_id ===
+                                                                    layout2.time_period_id &&
+                                                                  layout3.approved_at &&
+                                                                  layout2.approved_at &&
+                                                                  layout3.approved_at.getTime() >
+                                                                    layout2.approved_at.getTime(),
+                                                              ).length > 0,
                                                           };
-                                                        },
-                                                      )}
+                                                        })
+                                                        .filter(
+                                                          (layout2) =>
+                                                            !layout2.superseded,
+                                                        )}
                                                     >
                                                       <SelectTrigger>
                                                         <SelectValue />
@@ -996,14 +1053,34 @@ export default function ViewOrgPage() {
                                                       <SelectContent>
                                                         <SelectGroup>
                                                           {organization.room_layouts
+                                                            .filter(
+                                                              (layout2) =>
+                                                                layout2.approved_at,
+                                                            )
                                                             .map((layout2) => {
                                                               return {
                                                                 value:
                                                                   layout2.id,
                                                                 label:
                                                                   layout2.label,
+                                                                superseded:
+                                                                  organization.room_layouts.filter(
+                                                                    (layout3) =>
+                                                                      layout3.room_id ===
+                                                                        layout2.room_id &&
+                                                                      layout3.time_period_id ===
+                                                                        layout2.time_period_id &&
+                                                                      layout3.approved_at &&
+                                                                      layout2.approved_at &&
+                                                                      layout3.approved_at.getTime() >
+                                                                        layout2.approved_at.getTime(),
+                                                                  ).length > 0,
                                                               };
                                                             })
+                                                            .filter(
+                                                              (layout2) =>
+                                                                !layout2.superseded,
+                                                            )
                                                             .map((item) => (
                                                               <SelectItem
                                                                 key={item.value}

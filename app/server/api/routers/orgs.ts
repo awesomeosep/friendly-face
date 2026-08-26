@@ -736,50 +736,64 @@ export const orgRouter = {
       room_layout_id: input.to_id,
       organization_id: input.organization_id,
     }))
-    .handler(async ({ input }) => {
+    .handler(async ({ input, context }) => {
       try {
-        // console.log("get fromlayout");
-        const fromLayout = await db.query.roomLayoutTable.findFirst({
-          where: eq(roomLayoutTable.id, input.from_id),
-        });
-        if (!fromLayout) {
-          throw new Error("Source layout not found.");
+        const user = context.user;
+        const headersList = await headers();
+        const clientIp = headersList.get("x-client-ip") || "Unknown";
+        console.log(clientIp);
+        if (user) {
+          const fromLayout = await db.query.roomLayoutTable.findFirst({
+            where: eq(roomLayoutTable.id, input.from_id),
+          });
+          if (!fromLayout) {
+            throw new Error("Source layout not found.");
+          }
+          const fromLayoutParsed = LayoutDataSchema.parse(
+            fromLayout.layout_data,
+          );
+          const toLayout = await db.query.roomLayoutTable.findFirst({
+            where: eq(roomLayoutTable.id, input.to_id),
+          });
+          if (!toLayout) {
+            throw new Error("Destination layout not found.");
+          }
+          const newValues = {
+            label: toLayout.label,
+            organization_id: toLayout.organization_id,
+            time_period_id: toLayout.time_period_id,
+            room_id: toLayout.room_id,
+            layout_data: fromLayoutParsed,
+            updated_at: new Date(),
+            updated_by: user.id,
+            updated_by_ip: clientIp,
+            approved_at: new Date(),
+            approved_by: user.id,
+            approved_by_ip: clientIp,
+          };
+          if (!input.copy_table_data) {
+            newValues.layout_data.tableData = fromLayoutParsed.fixtures
+              .filter((item) => item.type.startsWith("table"))
+              .map((tableFixture) => {
+                return {
+                  id: tableFixture.id,
+                  seats: 8,
+                  seatsFilled: 0,
+                  open: true,
+                  interests: "",
+                  other: {},
+                };
+              });
+          }
+          // console.log("updatedValues: ", updatedValues);
+          const updatedLayout = await db
+            .insert(roomLayoutTable)
+            .values(newValues)
+            .returning();
+          return updatedLayout || null;
+        } else {
+          throw new Error("User not authenticated.");
         }
-        // console.log("fromLayout: ", fromLayout);
-        const fromLayoutParsed = LayoutDataSchema.parse(fromLayout.layout_data);
-        const toLayout = await db.query.roomLayoutTable.findFirst({
-          where: eq(roomLayoutTable.id, input.to_id),
-        });
-        if (!toLayout) {
-          throw new Error("Destination layout not found.");
-        }
-        // console.log("toLayout: ", toLayout);
-        // const toLayoutParsed = LayoutDataSchema.parse(toLayout.layout_data);
-        const updatedValues = {
-          layout_data: fromLayoutParsed,
-          updated_at: new Date(),
-        };
-        if (!input.copy_table_data) {
-          updatedValues.layout_data.tableData = fromLayoutParsed.fixtures
-            .filter((item) => item.type.startsWith("table"))
-            .map((tableFixture) => {
-              return {
-                id: tableFixture.id,
-                seats: 8,
-                seatsFilled: 0,
-                open: true,
-                interests: "",
-                other: {},
-              };
-            });
-        }
-        // console.log("updatedValues: ", updatedValues);
-        const updatedLayout = await db
-          .update(roomLayoutTable)
-          .set(updatedValues)
-          .where(eq(roomLayoutTable.id, input.to_id))
-          .returning();
-        return updatedLayout || null;
       } catch (error) {
         console.error("Error transferring layout: ", error);
         throw new Error("Failed to transfer layout. Please try again.");
