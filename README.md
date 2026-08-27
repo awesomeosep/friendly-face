@@ -9,6 +9,19 @@ FriendlyFace is a web app platform to connect people with similar interest at lu
 ## Demo
 To demo, use the location code "DEMO123" on the Find Location page. Then select a period and cafeteria to view the layout.
 
+## Technology
+- Next.js framework with API
+- Drizzle + Supabase database
+- Supabase auth
+- Shadcn components
+
+## How it was built
+- Began with a basic layout editor and viewer, with tables, counters, walls, text, and doors.
+- Added Shadcn components and basic home and search page frontend layouts.
+- Added basic initial database, organized into organizations, rooms, periods, and layouts.
+- Added Supabase auth for admins and corresponding frontend pages for adding, editing, and deleting rooms, periods, and layouts.
+- Added separate admin account roles and approval; staged and published layouts
+
 ## Features
 - Search for an organization by code
 - See and select rooms and periods in an organization
@@ -25,4 +38,3 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
-
