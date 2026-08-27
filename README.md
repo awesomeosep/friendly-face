@@ -17,10 +17,12 @@ To demo, use the location code "DEMO123" on the Find Location page. Then select 
 
 ## How it was built
 - Began with a basic layout editor and viewer, with tables, counters, walls, text, and doors.
+![Layout editor](https://github.com/awesomeosep/friendly-face/blob/master/Screenshot%202026-08-27%20180844.png)
 - Added Shadcn components and basic home and search page frontend layouts.
 - Added basic initial database, organized into organizations, rooms, periods, and layouts.
 - Added Supabase auth for admins and corresponding frontend pages for adding, editing, and deleting rooms, periods, and layouts.
 - Added separate admin account roles and approval; staged and published layouts
+![Admin view](https://github.com/awesomeosep/friendly-face/blob/master/Screenshot%202026-08-27%20181630.png)
 
 ## Features
 - Search for an organization by code
