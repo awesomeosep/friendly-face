@@ -16,18 +16,20 @@ To demo, use the location code "DEMO123" on the Find Location page. Then select 
 - Shadcn components
 
 ## How it was built
-- Began with a basic layout editor and viewer, with tables, counters, walls, text, and doors.
+- Built the initial mobile-friendly basic layout editor and viewer, with tables, counters, walls, text, and doors using AI. I added customizations of the UI and table data such as collecting which tables are welcoming new people to sit with them and their interests.
 ![Layout editor](https://github.com/awesomeosep/friendly-face/blob/master/Screenshot%202026-08-27%20180844.png)
-- Added Shadcn components and basic home and search page frontend layouts.
-- Added basic initial database, organized into organizations, rooms, periods, and layouts.
-- Added Supabase auth for admins and corresponding frontend pages for adding, editing, and deleting rooms, periods, and layouts.
-- Added separate admin account roles and approval; staged and published layouts
+- Added styling: I initially added Neobrutalism components, then realized it would not be easily implemenntable in the layout editor. I wanted the app to have  aconsistent look throughout, so I decided to use basic Shadcn components instead, which also aligned better with the purpose and mood of the site as well.
+- Database: Added intiial db, organized into organizations, rooms, periods, and layouts. I had used Drizzle before, so I used that to connect to a Supabase database, starting with a few basic tables. As I added features, I added and modifid tables and fields (such as adding an admins and organzation roles table and modifying the uses of the admin_id field in the organizations table).
+- Auth: Added Supabase Auth for admins. I added a login feature, but disabled the signup feature for safety. This allowed me to add the corresponding frontend pages for adding, editing, and deleting rooms, periods, and layouts. I also built the much of backend code to connect to the database at this point.
+- To meeet the needs of my school's implementation, I added separate admin account roles for editing and approval. With this, I also added potential for separate staged and published layouts, enabling basic version control for schools.
 ![Admin view](https://github.com/awesomeosep/friendly-face/blob/master/Screenshot%202026-08-27%20181630.png)
 
 ## Features
 - Search for an organization by code
 - See and select rooms and periods in an organization
 - View room layouts and lunch tables who are welcoming new people
+- Admin login to edit, add, and delete rooms, periods, and layouts
+- Separate editor and approval roles for admins
 
 ## AI Usage
 AI was used to build the initial version of the layout editor/viewer, which was then edited to meet the needs of the project. AI autocomplete was used for small sections of code.
